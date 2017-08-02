@@ -1,0 +1,22 @@
+﻿  Uic'ing CameraTools.ui...
+  CameraTools.cpp
+d:\cameratools\cameratool_vs\cameratools\cameratools\directshowtools.h : warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+c:\program files\microsoft sdks\windows\v7.1\include\sal_supp.h(57): warning C4005: “__useHeader”: 宏重定义
+  C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\include\sal.h(2866): note: 参见“__useHeader”的前一个定义
+c:\program files\microsoft sdks\windows\v7.1\include\specstrings_supp.h(77): warning C4005: “__on_failure”: 宏重定义
+  C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\include\sal.h(2876): note: 参见“__on_failure”的前一个定义
+  moc_CameraTools.cpp
+d:\cameratools\cameratool_vs\cameratools\cameratools\directshowtools.h : warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+c:\program files\microsoft sdks\windows\v7.1\include\sal_supp.h(57): warning C4005: “__useHeader”: 宏重定义
+  C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\include\sal.h(2866): note: 参见“__useHeader”的前一个定义
+c:\program files\microsoft sdks\windows\v7.1\include\specstrings_supp.h(77): warning C4005: “__on_failure”: 宏重定义
+  C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\include\sal.h(2876): note: 参见“__on_failure”的前一个定义
+  main.cpp
+d:\cameratools\cameratool_vs\cameratools\cameratools\directshowtools.h : warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+c:\program files\microsoft sdks\windows\v7.1\include\sal_supp.h(57): warning C4005: “__useHeader”: 宏重定义
+  C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\include\sal.h(2866): note: 参见“__useHeader”的前一个定义
+c:\program files\microsoft sdks\windows\v7.1\include\specstrings_supp.h(77): warning C4005: “__on_failure”: 宏重定义
+  C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\include\sal.h(2876): note: 参见“__on_failure”的前一个定义
+  正在生成代码...
+  CameraTools.vcxproj -> D:\CameraTools\CameraTool_VS\CameraTools\Win32\Debug\CameraTools.exe
+  CameraTools.vcxproj -> D:\CameraTools\CameraTool_VS\CameraTools\Win32\Debug\CameraTools.pdb (Full PDB)
