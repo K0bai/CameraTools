@@ -69,8 +69,12 @@ class DirectShowTools : public QThread
 
 public:
     DirectShowTools();
-    // 将图像数据编码为H264的函数，暂时需要多参数
-    int H264OutputConfig(const std::string& output_name, int& picture_size, uint8_t* picture_buf);
+    // 将图像数据编码为MP4的相关函数，暂时需要多参数
+	int MP4OutputConfig(const std::string& output_name, int& picture_size, uint8_t* picture_buf);
+	AVStream *add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id);
+	void open_video(AVFormatContext *oc, AVStream *st);
+	void write_video_frame(AVFormatContext *oc_m, AVStream *video_st_m, int &pts_num,
+						   AVFrame* &m_OutputFrame, int &framecnt);
 
     // 从摄像头获取图像数据的函数
     int CameraInputInit(const std::string& camera_name, int &video_stream);
@@ -109,11 +113,12 @@ private:
     AVFrame *m_InputFrame;
     AVFrame *m_InputFrameRGB;
 
-    // 编码图像数据的变量
+    // h264编码图像数据的变量
     AVCodecContext *m_OutputCodecCtx;
     AVFormatContext *m_OutputFormatCtx;
     AVFrame *m_OutputFrame;
     AVStream *m_OutputVideoStream;
+	AVOutputFormat *m_OutputFormat;
 
 
 };

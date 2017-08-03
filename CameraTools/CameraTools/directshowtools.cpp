@@ -360,224 +360,123 @@ int DirectShowTools::CameraInputInit(const std::string& camera_name, int &video_
     avpicture_fill((AVPicture *)m_InputFrameRGB, buffer, pFormat, m_InputCodecCtx->width, m_InputCodecCtx->height);
 }
 
-
-int DirectShowTools::H264OutputConfig(const std::string& output_name, int& picture_size, uint8_t* picture_buf)
-{
-    AVOutputFormat* fmt;
-    AVCodec* pCodec;
-    m_OutputFormatCtx = avformat_alloc_context();
-    fmt = av_guess_format(NULL, output_name.c_str(), NULL);
-    if (NULL == fmt) {
-        return -1;
-    }
-    m_OutputFormatCtx->oformat = fmt;
-    if (avio_open(&m_OutputFormatCtx->pb, output_name.c_str(), AVIO_FLAG_READ_WRITE) < 0) {
-        return -1;
-    }
-    m_OutputVideoStream = avformat_new_stream(m_OutputFormatCtx, 0);
-    if (m_OutputVideoStream == NULL) {
-        return -1;
-    }
-    m_OutputCodecCtx = m_OutputVideoStream->codec;
-    m_OutputCodecCtx->codec_id = fmt->video_codec;
-    m_OutputCodecCtx->codec_type = AVMEDIA_TYPE_VIDEO;
-    m_OutputCodecCtx->pix_fmt = PIX_FMT_YUV420P;
-    m_OutputCodecCtx->width = 640;
-    m_OutputCodecCtx->height = 480;
-    m_OutputCodecCtx->time_base.num = 1;
-    m_OutputCodecCtx->time_base.den = 25;
-    m_OutputCodecCtx->bit_rate = 400000;
-    m_OutputCodecCtx->gop_size = 10;
-    m_OutputCodecCtx->qmin = 10;
-    m_OutputCodecCtx->qmax = 51;
-    m_OutputCodecCtx->max_b_frames = 0;
-
-    AVDictionary *param_out = 0;
-    if (m_OutputCodecCtx->codec_id == AV_CODEC_ID_H264) {
-        av_dict_set(&param_out, "preset", "slow", 0);
-        av_dict_set(&param_out, "tune", "zerolatency", 0);
-    }
-    av_dump_format(m_OutputFormatCtx, 0, output_name.c_str(), 1);
-    pCodec = avcodec_find_encoder(m_OutputCodecCtx->codec_id);
-
-    if (!pCodec) {
-        return -1;
-    }
-    if (avcodec_open2(m_OutputCodecCtx, pCodec, &param_out) < 0) {
-        return -1;
-    }
-    m_OutputFrame = av_frame_alloc();
-    picture_size = avpicture_get_size(m_OutputCodecCtx->pix_fmt, m_OutputCodecCtx->width, m_OutputCodecCtx->height);
-    picture_buf = (uint8_t *)av_malloc(picture_size);
-    avpicture_fill((AVPicture *)m_OutputFrame, picture_buf, m_OutputCodecCtx->pix_fmt, m_OutputCodecCtx->width, m_OutputCodecCtx->height);
-    avformat_write_header(m_OutputFormatCtx, NULL);
-
-}
-
-/*
-AVStream *add_stream(AVFormatContext *oc, AVCodec **codec, enum AVCodecID codec_id)
+// 引用几个函数修改自muxing.c 文档
+// add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id)
+// open_video(AVFormatContext *oc, AVStream *st)
+// write_video_frame(AVFormatContext *oc_m, AVStream *video_st_m, int &pts_num,
+//					 AVFrame* &m_OutputFrame, int &framecnt)
+AVStream* DirectShowTools::add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id)
 {
 	AVCodecContext *c;
 	AVStream *st;
+	AVCodec *codec;
 
-	*codec = avcodec_find_encoder(codec_id);
-	if (!*codec)
-	{
-		printf("could not find encoder for '%s' \n", avcodec_get_name(codec_id));
-		exit(1);
+	st = avformat_new_stream(oc, NULL);
+	if (!st) {
+		return NULL;
 	}
-	st = avformat_new_stream(oc, *codec);
-	if (!st)
-	{
-		printf("could not allocate stream \n");
-		exit(1);
-	}
-	st->id = oc->nb_streams - 1;
+
 	c = st->codec;
-	vi = st->index;
-	switch ((*codec)->type)
-	{
-	case AVMEDIA_TYPE_AUDIO:
-		printf("AVMEDIA_TYPE_AUDIO\n");
-		c->sample_fmt = (*codec)->sample_fmts ? (*codec)->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
-		c->bit_rate = 64000;
-		c->sample_rate = 44100;
-		c->channels = 2;
-		break;
-	case AVMEDIA_TYPE_VIDEO:
-		printf("AVMEDIA_TYPE_VIDEO\n");
-		c->codec_id = AV_CODEC_ID_H264;
-		c->bit_rate = 0;
-		c->width = 1920;
-		c->height = 1080;
-		c->time_base.den = 50;
-		c->time_base.num = 1;
-		c->gop_size = 1;
-		c->pix_fmt = STREAM_PIX_FMT;
-		if (c->codec_id == AV_CODEC_ID_MPEG2VIDEO)
-		{
-			c->max_b_frames = 2;
-		}
-		if (c->codec_id == AV_CODEC_ID_MPEG1VIDEO)
-		{
-			c->mb_decision = 2;
-		}
-		break;
-	default:
-		break;
+
+	/* find the video encoder */
+	codec = avcodec_find_encoder(codec_id);
+	if (!codec) {
+		return NULL;
 	}
+	avcodec_get_context_defaults3(c, codec);
+
+	c->codec_id = codec_id;
+
+	/* put sample parameters */
+	c->bit_rate = /*400000*/3000000;
+	/* resolution must be a multiple of two */
+	c->width = /*352*/640;
+	c->height = /*288*/480;
+	/* time base: this is the fundamental unit of time (in seconds) in terms
+	of which frame timestamps are represented. for fixed-fps content,
+	timebase should be 1/framerate and timestamp increments should be
+	identically 1. */
+	c->time_base.den = 25;
+	c->time_base.num = 1;
+	c->gop_size = 12; /* emit one intra frame every twelve frames at most */
+	c->pix_fmt = PIX_FMT_YUV420P;
+	if (c->codec_id == CODEC_ID_MPEG2VIDEO) {
+		/* just for testing, we also add B frames */
+		c->max_b_frames = 2;
+	}
+	if (c->codec_id == CODEC_ID_MPEG1VIDEO) {
+		/* Needed to avoid using macroblocks in which some coeffs overflow.
+		This does not happen with normal video, it just happens here as
+		the motion of the chroma plane does not match the luma plane. */
+		c->mb_decision = 2;
+	}
+	// some formats want stream headers to be separate
 	if (oc->oformat->flags & AVFMT_GLOBALHEADER)
-	{
 		c->flags |= CODEC_FLAG_GLOBAL_HEADER;
-	}
+
 	return st;
 }
 
-int CreateMp4()
+void DirectShowTools::open_video(AVFormatContext *oc, AVStream *st)
 {
-	int ret; // 成功返回0，失败返回1  
-	const char* pszFileName = "/udisk/vpu.mp4";
-	AVOutputFormat *fmt;
-	AVCodec *video_codec;
-	AVStream *m_pVideoSt;
-	av_register_all();
-	avformat_alloc_output_context2(&m_pOc, NULL, NULL, pszFileName);
-	if (!m_pOc)
-	{
-		printf("Could not deduce output format from file extension: using MPEG. \n");
-		avformat_alloc_output_context2(&m_pOc, NULL, "mpeg", pszFileName);
-	}
-	if (!m_pOc)
-	{
-		return 1;
-	}
-	fmt = m_pOc->oformat;
-	if (fmt->video_codec != AV_CODEC_ID_NONE)
-	{
-		printf("1111111111111111add_stream\n");
-		m_pVideoSt = add_stream(m_pOc, &video_codec, fmt->video_codec);
-	}
-	if (m_pVideoSt)
-	{
-		printf("1111111111111111open_video\n");
-		open_video(m_pOc, video_codec, m_pVideoSt);
-	}
-	printf("==========Output Information==========\n");
-	av_dump_format(m_pOc, 0, pszFileName, 1);
-	printf("======================================\n");
+	AVCodec *codec;
+	AVCodecContext *c;
 
-	if (!(fmt->flags & AVFMT_NOFILE))
-	{
-		ret = avio_open(&m_pOc->pb, pszFileName, AVIO_FLAG_WRITE);
-		if (ret < 0)
-		{
-			printf("could not open %s\n", pszFileName);
-			return 1;
+	c = st->codec;
+
+	/* find the video encoder */
+	codec = avcodec_find_encoder(c->codec_id);
+	if (!codec) {
+		fprintf(stderr, "codec not found\n");
+	}
+
+	/* open the codec */
+	if (avcodec_open2(c, codec, NULL) < 0) {
+		fprintf(stderr, "could not open codec\n");
+	}
+}
+
+void DirectShowTools::write_video_frame(AVFormatContext *oc_m, AVStream *video_st_m, int &pts_num,
+					   AVFrame* &m_OutputFrame, int &framecnt)
+{
+	if (oc_m->oformat->flags & AVFMT_RAWPICTURE) {
+		AVPacket pkt;
+		av_init_packet(&pkt);
+
+		pkt.flags |= AV_PKT_FLAG_KEY;
+		pkt.stream_index = video_st_m->index;
+		pkt.data = (uint8_t *)m_OutputFrame;
+		pkt.size = sizeof(AVPicture);
+
+		av_interleaved_write_frame(oc_m, &pkt);
+	}
+	else {
+		int video_outbuf_size = 2000000;
+		uint8_t* video_outbuf = (uint8_t *)av_malloc(video_outbuf_size);
+		memset(video_outbuf, 0, video_outbuf_size);
+
+		int out_size = 0;
+		m_OutputFrame->pts = pts_num;
+		out_size = avcodec_encode_video(video_st_m->codec, video_outbuf, video_outbuf_size, m_OutputFrame);
+
+		if (out_size > 0) {
+			AVPacket pkt;
+			av_init_packet(&pkt);
+
+			if (video_st_m->codec->coded_frame->pts != AV_NOPTS_VALUE)
+				pkt.pts = av_rescale_q(video_st_m->codec->coded_frame->pts, video_st_m->codec->time_base, 
+									   video_st_m->time_base);
+			if (video_st_m->codec->coded_frame->key_frame)
+				pkt.flags |= AV_PKT_FLAG_KEY;
+			pkt.stream_index = video_st_m->index;
+			pkt.data = video_outbuf;
+			pkt.size = out_size;
+			framecnt++;
+			av_interleaved_write_frame(oc_m, &pkt);
 		}
-	}
-
-	ret = avformat_write_header(m_pOc, NULL);
-	if (ret < 0)
-	{
-		printf("Error occurred when opening output file");
-		return 1;
+		av_free(video_outbuf);
 	}
 }
-
-void WriteVideo(void* data, int nLen)
-{
-	int ret;
-	if (0 > vi)
-	{
-		printf("vi less than 0");
-		//return -1;  
-	}
-	AVStream *pst = m_pOc->streams[vi];
-	//printf("vi=====%d\n",vi);  
-	// Init packet  
-	AVPacket pkt;
-	// 我的添加，为了计算pts  
-	AVCodecContext *c = pst->codec;
-	av_init_packet(&pkt);
-	pkt.flags |= (0 >= getVopType(data, nLen)) ? AV_PKT_FLAG_KEY : 0;
-	pkt.stream_index = pst->index;
-	pkt.data = (uint8_t*)data;
-	pkt.size = nLen;
-	// Wait for key frame  
-	if (waitkey)
-		if (0 == (pkt.flags & AV_PKT_FLAG_KEY))
-			return;
-		else
-			waitkey = 0;
-	pkt.pts = (ptsInc++) * (90000 / STREAM_FRAME_RATE);
-	pkt.pts = av_rescale_q((ptsInc++) * 2, pst->codec->time_base, pst->time_base);
-	//pkt.dts = (ptsInc++) * (90000/STREAM_FRAME_RATE);  
-	//  pkt.pts=av_rescale_q_rnd(pkt.pts, pst->time_base,pst->time_base,(AVRounding)(AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX));  
-	pkt.dts = av_rescale_q_rnd(pkt.dts, pst->time_base, pst->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
-	pkt.duration = av_rescale_q(pkt.duration, pst->time_base, pst->time_base);
-	pkt.pos = -1;
-	printf("pkt.size=%d\n", pkt.size);
-	ret = av_interleaved_write_frame(m_pOc, &pkt);
-	if (ret < 0)
-	{
-		printf("cannot write frame");
-	}
-}
-
-void CloseMp4()
-{
-	waitkey = -1;
-	vi = -1;
-	if (m_pOc)
-		av_write_trailer(m_pOc);
-	if (m_pOc && !(m_pOc->oformat->flags & AVFMT_NOFILE))
-		avio_close(m_pOc->pb);
-	if (m_pOc)
-	{
-		avformat_free_context(m_pOc);
-		m_pOc = NULL;
-	}
-}*/
 
 void DirectShowTools::run()
 {
@@ -592,19 +491,44 @@ void DirectShowTools::run()
 	int video_stream = 1;
 	CameraInputInit(camera_name, video_stream);
 
-	uint8_t* picture_buf = NULL;
-	int picture_size = 0;
-	std::string output_file_name = "test.h264";
-	H264OutputConfig(output_file_name, picture_size, picture_buf);
+	std::string output_file_ = "t1.mp4";
 
-	AVPacket pkt_out;
-	av_new_packet(&pkt_out, picture_size);
+	double video_pts_m;
+	avformat_alloc_output_context2(&m_OutputFormatCtx, NULL, NULL, output_file_.c_str());
+	if (!m_OutputFormatCtx) {
+		avformat_alloc_output_context2(&m_OutputFormatCtx, NULL, "mpeg", output_file_.c_str());
+	}
+	if (!m_OutputFormatCtx) {
+		return ;
+	}
 
-	int res;
-	int frameFinished;
+	m_OutputFormatCtx->oformat->video_codec = CODEC_ID_H264;
+	m_OutputFormat = m_OutputFormatCtx->oformat;
+
+	m_OutputVideoStream = NULL;
+	if (m_OutputFormat->video_codec != CODEC_ID_NONE) {
+		m_OutputVideoStream = add_video_stream(m_OutputFormatCtx, m_OutputFormat->video_codec);
+	}
+
+	if (m_OutputVideoStream)
+		open_video(m_OutputFormatCtx, m_OutputVideoStream);
+
+	if (!(m_OutputFormat->flags & AVFMT_NOFILE)) {
+		if (avio_open(&m_OutputFormatCtx->pb, output_file_.c_str(), AVIO_FLAG_WRITE) < 0) {
+			return ;
+		}
+	}
+	avformat_write_header(m_OutputFormatCtx, NULL);
+
+	m_OutputCodecCtx = m_OutputVideoStream->codec;
+	m_OutputFrame = av_frame_alloc();
+	int picture_size = avpicture_get_size(m_OutputCodecCtx->pix_fmt, m_OutputCodecCtx->width, m_OutputCodecCtx->height);
+	uint8_t *picture_buf = (uint8_t *)av_malloc(picture_size);
+	avpicture_fill((AVPicture *)m_OutputFrame, picture_buf, m_OutputCodecCtx->pix_fmt, m_OutputCodecCtx->width, m_OutputCodecCtx->height);
+
+	int res, frameFinished, pts_num = 0, framecnt = 0;
 	AVPacket packet;
-	int pts_num = 0;
-	int framecnt = 0;
+	
 	while (res = av_read_frame(m_InputFormatCtx, &packet) >= 0)
 	{
 		if (packet.stream_index != video_stream) {
@@ -624,17 +548,14 @@ void DirectShowTools::run()
 			     ((AVPicture *)m_InputFrameRGB)->data, ((AVPicture *)m_InputFrameRGB)->linesize);
 
 		cv::Mat img(m_InputFrame->height, m_InputFrame->width, CV_8UC3, m_InputFrameRGB->data[0]);
-
-//		cv::imshow("display", img);
-//		cv::cvtColor(img, img, CV_BGR2RGB);
 		QImage Qimg = QImage((const unsigned char*)(img.data), img.cols,
-			                img.rows, img.cols*img.channels(), QImage::Format_RGB888);
+			img.rows, img.cols*img.channels(), QImage::Format_RGB888);
 		emit send_image_data(Qimg);
 		cvWaitKey(10);
 
 		sws_freeContext(img_convert_ctx);
 
-		if (framecnt > 500) break;
+		if (framecnt > 200) break;
 
 		struct SwsContext * img_convert_ctx_out;
 		img_convert_ctx_out = sws_getCachedContext(NULL, m_InputCodecCtx->width, 
@@ -642,33 +563,34 @@ void DirectShowTools::run()
 							  m_InputCodecCtx->width, m_InputCodecCtx->height, 
 							  AV_PIX_FMT_YUV420P, SWS_FAST_BILINEAR, NULL, NULL, NULL);
 
+
 		sws_scale(img_convert_ctx_out, ((AVPicture*)m_InputFrame)->data, 
 				 ((AVPicture*)m_InputFrame)->linesize, 0, m_InputCodecCtx->height, 
 				 ((AVPicture *)m_OutputFrame)->data, ((AVPicture *)m_OutputFrame)->linesize);
 
-		m_OutputFrame->pkt_pts = pts_num * (m_OutputVideoStream->time_base.den)
-								 /((m_OutputVideoStream->time_base.num) * 25);
+		if (m_OutputVideoStream) {
+			video_pts_m = (double)m_OutputVideoStream->pts.val * m_OutputVideoStream->time_base.num 
+						  / m_OutputVideoStream->time_base.den;
+		}
+		else {
+			video_pts_m = 0.0;
+		}
+
+		if (!m_OutputVideoStream || video_pts_m >= 5) {
+			break;
+		}
+		write_video_frame(m_OutputFormatCtx, m_OutputVideoStream, pts_num, m_OutputFrame, framecnt);
 		pts_num++;
-		int got_picture = 0;
-		int ret = avcodec_encode_video2(m_OutputCodecCtx, &pkt_out, m_OutputFrame, &got_picture);
-		if (ret < 0) {
-			return ;
-		}
-		if (got_picture == 1) {
-			framecnt++;
-			pkt_out.stream_index = m_OutputVideoStream->index;
-			ret = av_write_frame(m_OutputFormatCtx, &pkt_out);
-			av_free_packet(&pkt_out);
-		}
+
 		av_free_packet(&packet);
 		sws_freeContext(img_convert_ctx_out);
 	}
 	flush_encoder(0);
+
 	av_write_trailer(m_OutputFormatCtx);
 	if (m_OutputVideoStream) {
 		av_free(picture_buf);
 	}
 	Destory();
 	av_free_packet(&packet);
-	av_free_packet(&pkt_out);
 }
