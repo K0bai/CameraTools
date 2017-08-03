@@ -261,7 +261,40 @@ std::vector<CameraDeviceInfo> DirectShowTools::ListCameraDevice()
     return device_list;
 }
 
-int DirectShowTools::flush_encoder(unsigned int stream_index) {
+void DirectShowTools::ConfigCamera()
+{
+	IMediaControl *pMediaCtrl;
+	ICaptureGraphBuilder2 *pCaptureGB;
+	IBaseFilter *pBaseFilter;
+
+//	pMediaCtrl->Stop();
+	HRESULT hr;
+	IAMStreamConfig *pIAMStreamConfig;
+	ISpecifyPropertyPages *pISecifyPP;
+
+	hr = pCaptureGB->FindInterface(&PIN_CATEGORY_CAPTURE,
+		&MEDIATYPE_Video, pBaseFilter, IID_IAMStreamConfig, 
+		(void **)&pIAMStreamConfig);
+
+	if (SUCCEEDED(hr)) {
+		CAUUID cauuid;
+		hr = pIAMStreamConfig->QueryInterface(IID_ISpecifyPropertyPages, (void**)&pISecifyPP);
+		if (hr == S_OK)
+		{
+			HWND p;
+			hr = pISecifyPP->GetPages(&cauuid);
+			hr = OleCreatePropertyFrame(p, 30, 30, NULL, 1, (IUnknown**)&pIAMStreamConfig, cauuid.cElems, (GUID*)cauuid.pElems, 0, 0, NULL);
+			CoTaskMemFree(cauuid.pElems);
+
+		}
+	}
+	pIAMStreamConfig->Release();
+	pISecifyPP->Release();
+	pMediaCtrl->Run();
+}
+
+int DirectShowTools::flush_encoder(unsigned int stream_index) 
+{
     int ret;
     int got_frame;
     AVPacket enc_pkt;
@@ -272,8 +305,8 @@ int DirectShowTools::flush_encoder(unsigned int stream_index) {
         enc_pkt.data = NULL;
         enc_pkt.size = 0;
         av_init_packet(&enc_pkt);
-        ret = avcodec_encode_video2(m_OutputFormatCtx->streams[stream_index]->codec, &enc_pkt,
-            NULL, &got_frame);
+        ret = avcodec_encode_video2(m_OutputFormatCtx->streams[stream_index]->codec,
+									&enc_pkt, NULL, &got_frame);
         av_frame_free(NULL);
         if (ret < 0)
             break;
@@ -357,7 +390,7 @@ int DirectShowTools::H264OutputConfig(const std::string& output_name, int& pictu
     m_OutputCodecCtx->gop_size = 10;
     m_OutputCodecCtx->qmin = 10;
     m_OutputCodecCtx->qmax = 51;
-    m_OutputCodecCtx->max_b_frames = 3;
+    m_OutputCodecCtx->max_b_frames = 0;
 
     AVDictionary *param_out = 0;
     if (m_OutputCodecCtx->codec_id == AV_CODEC_ID_H264) {
@@ -380,6 +413,171 @@ int DirectShowTools::H264OutputConfig(const std::string& output_name, int& pictu
     avformat_write_header(m_OutputFormatCtx, NULL);
 
 }
+
+/*
+AVStream *add_stream(AVFormatContext *oc, AVCodec **codec, enum AVCodecID codec_id)
+{
+	AVCodecContext *c;
+	AVStream *st;
+
+	*codec = avcodec_find_encoder(codec_id);
+	if (!*codec)
+	{
+		printf("could not find encoder for '%s' \n", avcodec_get_name(codec_id));
+		exit(1);
+	}
+	st = avformat_new_stream(oc, *codec);
+	if (!st)
+	{
+		printf("could not allocate stream \n");
+		exit(1);
+	}
+	st->id = oc->nb_streams - 1;
+	c = st->codec;
+	vi = st->index;
+	switch ((*codec)->type)
+	{
+	case AVMEDIA_TYPE_AUDIO:
+		printf("AVMEDIA_TYPE_AUDIO\n");
+		c->sample_fmt = (*codec)->sample_fmts ? (*codec)->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
+		c->bit_rate = 64000;
+		c->sample_rate = 44100;
+		c->channels = 2;
+		break;
+	case AVMEDIA_TYPE_VIDEO:
+		printf("AVMEDIA_TYPE_VIDEO\n");
+		c->codec_id = AV_CODEC_ID_H264;
+		c->bit_rate = 0;
+		c->width = 1920;
+		c->height = 1080;
+		c->time_base.den = 50;
+		c->time_base.num = 1;
+		c->gop_size = 1;
+		c->pix_fmt = STREAM_PIX_FMT;
+		if (c->codec_id == AV_CODEC_ID_MPEG2VIDEO)
+		{
+			c->max_b_frames = 2;
+		}
+		if (c->codec_id == AV_CODEC_ID_MPEG1VIDEO)
+		{
+			c->mb_decision = 2;
+		}
+		break;
+	default:
+		break;
+	}
+	if (oc->oformat->flags & AVFMT_GLOBALHEADER)
+	{
+		c->flags |= CODEC_FLAG_GLOBAL_HEADER;
+	}
+	return st;
+}
+
+int CreateMp4()
+{
+	int ret; // 成功返回0，失败返回1  
+	const char* pszFileName = "/udisk/vpu.mp4";
+	AVOutputFormat *fmt;
+	AVCodec *video_codec;
+	AVStream *m_pVideoSt;
+	av_register_all();
+	avformat_alloc_output_context2(&m_pOc, NULL, NULL, pszFileName);
+	if (!m_pOc)
+	{
+		printf("Could not deduce output format from file extension: using MPEG. \n");
+		avformat_alloc_output_context2(&m_pOc, NULL, "mpeg", pszFileName);
+	}
+	if (!m_pOc)
+	{
+		return 1;
+	}
+	fmt = m_pOc->oformat;
+	if (fmt->video_codec != AV_CODEC_ID_NONE)
+	{
+		printf("1111111111111111add_stream\n");
+		m_pVideoSt = add_stream(m_pOc, &video_codec, fmt->video_codec);
+	}
+	if (m_pVideoSt)
+	{
+		printf("1111111111111111open_video\n");
+		open_video(m_pOc, video_codec, m_pVideoSt);
+	}
+	printf("==========Output Information==========\n");
+	av_dump_format(m_pOc, 0, pszFileName, 1);
+	printf("======================================\n");
+
+	if (!(fmt->flags & AVFMT_NOFILE))
+	{
+		ret = avio_open(&m_pOc->pb, pszFileName, AVIO_FLAG_WRITE);
+		if (ret < 0)
+		{
+			printf("could not open %s\n", pszFileName);
+			return 1;
+		}
+	}
+
+	ret = avformat_write_header(m_pOc, NULL);
+	if (ret < 0)
+	{
+		printf("Error occurred when opening output file");
+		return 1;
+	}
+}
+
+void WriteVideo(void* data, int nLen)
+{
+	int ret;
+	if (0 > vi)
+	{
+		printf("vi less than 0");
+		//return -1;  
+	}
+	AVStream *pst = m_pOc->streams[vi];
+	//printf("vi=====%d\n",vi);  
+	// Init packet  
+	AVPacket pkt;
+	// 我的添加，为了计算pts  
+	AVCodecContext *c = pst->codec;
+	av_init_packet(&pkt);
+	pkt.flags |= (0 >= getVopType(data, nLen)) ? AV_PKT_FLAG_KEY : 0;
+	pkt.stream_index = pst->index;
+	pkt.data = (uint8_t*)data;
+	pkt.size = nLen;
+	// Wait for key frame  
+	if (waitkey)
+		if (0 == (pkt.flags & AV_PKT_FLAG_KEY))
+			return;
+		else
+			waitkey = 0;
+	pkt.pts = (ptsInc++) * (90000 / STREAM_FRAME_RATE);
+	pkt.pts = av_rescale_q((ptsInc++) * 2, pst->codec->time_base, pst->time_base);
+	//pkt.dts = (ptsInc++) * (90000/STREAM_FRAME_RATE);  
+	//  pkt.pts=av_rescale_q_rnd(pkt.pts, pst->time_base,pst->time_base,(AVRounding)(AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX));  
+	pkt.dts = av_rescale_q_rnd(pkt.dts, pst->time_base, pst->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
+	pkt.duration = av_rescale_q(pkt.duration, pst->time_base, pst->time_base);
+	pkt.pos = -1;
+	printf("pkt.size=%d\n", pkt.size);
+	ret = av_interleaved_write_frame(m_pOc, &pkt);
+	if (ret < 0)
+	{
+		printf("cannot write frame");
+	}
+}
+
+void CloseMp4()
+{
+	waitkey = -1;
+	vi = -1;
+	if (m_pOc)
+		av_write_trailer(m_pOc);
+	if (m_pOc && !(m_pOc->oformat->flags & AVFMT_NOFILE))
+		avio_close(m_pOc->pb);
+	if (m_pOc)
+	{
+		avformat_free_context(m_pOc);
+		m_pOc = NULL;
+	}
+}*/
 
 void DirectShowTools::run()
 {
@@ -420,17 +618,23 @@ void DirectShowTools::run()
 		img_convert_ctx = sws_getCachedContext(NULL, m_InputCodecCtx->width, 
 							m_InputCodecCtx->height, m_InputCodecCtx->pix_fmt, 
 							m_InputCodecCtx->width, m_InputCodecCtx->height, 
-							AV_PIX_FMT_BGR24, SWS_BICUBIC, NULL, NULL, NULL);
+							AV_PIX_FMT_RGB24, SWS_BICUBIC, NULL, NULL, NULL);
 		sws_scale(img_convert_ctx, ((AVPicture*)m_InputFrame)->data, 
 			     ((AVPicture*)m_InputFrame)->linesize, 0, m_InputCodecCtx->height, 
 			     ((AVPicture *)m_InputFrameRGB)->data, ((AVPicture *)m_InputFrameRGB)->linesize);
 
 		cv::Mat img(m_InputFrame->height, m_InputFrame->width, CV_8UC3, m_InputFrameRGB->data[0]);
-		cv::imshow("display", img);
-		cvWaitKey(1);
+
+//		cv::imshow("display", img);
+//		cv::cvtColor(img, img, CV_BGR2RGB);
+		QImage Qimg = QImage((const unsigned char*)(img.data), img.cols,
+			                img.rows, img.cols*img.channels(), QImage::Format_RGB888);
+		emit send_image_data(Qimg);
+		cvWaitKey(10);
+
 		sws_freeContext(img_convert_ctx);
 
-		if (framecnt > 200) break;
+		if (framecnt > 500) break;
 
 		struct SwsContext * img_convert_ctx_out;
 		img_convert_ctx_out = sws_getCachedContext(NULL, m_InputCodecCtx->width, 

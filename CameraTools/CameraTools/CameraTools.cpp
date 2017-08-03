@@ -5,6 +5,9 @@ CameraTools::CameraTools(QWidget *parent)
 	: QMainWindow(parent)
 {
 	ui.setupUi(this);
+
+	b_grab = false;
+
 	DirectShowTools ds;
 	std::vector<CameraDeviceInfo> camera_device_list;
 	camera_device_list = ds.ListCameraDevice();
@@ -14,7 +17,7 @@ CameraTools::CameraTools(QWidget *parent)
 		{
 			ui.comboBox_Camera->addItems((QStringList)camera_device_list[i].friend_name.c_str());
 		}
-		ShowCameraInfo(camera_device_list, 0);
+		ShowCameraInfo(camera_device_list, 1);
 	}
 	
 	
@@ -49,17 +52,28 @@ void CameraTools::ShowCameraInfo(std::vector<CameraDeviceInfo>& camera_info, int
 	}
 }
 
+void CameraTools::paint_img(QImage src_img)
+{
+	ui.label_show_picture->resize(src_img.size());
+	ui.label_show_picture->setPixmap(QPixmap::fromImage(src_img));
+	if (b_grab) {
+		b_grab = false;
+		src_img.save("2.jpeg");
+	}
+}
+
 void CameraTools::button_startshow_click()
 {
 	QMessageBox::about(NULL, "1", "test");
-	cv::Mat image;
-	image = cv::imread("1.jpg", -1);
-	cv::cvtColor(image, image, CV_BGR2RGB);
-	QImage img = QImage((const unsigned char*)(image.data), image.cols, image.rows, image.cols*image.channels(), QImage::Format_RGB888);
-//	ui.label_show_picture->clear();
-	ui.label_show_picture->setPixmap(QPixmap::fromImage(img));
-//	ui.label_show_picture->resize(ui.label_show_picture->pixmap()->size());
-//	DirectShowTools *ds = new DirectShowTools();
-//	ds->start();
 
+	ds1 = new DirectShowTools();
+//	ds1->ConfigCamera();
+	connect(ds1, SIGNAL(send_image_data(QImage)), this,
+		SLOT(paint_img(QImage)), Qt::QueuedConnection);
+	ds1->start();
+}
+
+void CameraTools::button_grab_click()
+{
+	b_grab = true;
 }

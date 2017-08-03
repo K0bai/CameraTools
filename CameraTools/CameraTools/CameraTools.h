@@ -14,7 +14,13 @@ public:
 
 private:
 	Ui::CameraToolsClass ui;
+	DirectShowTools *ds1;
+
+private:
+	bool b_grab;
 
 private slots:
 	void button_startshow_click();
+	void button_grab_click();
+	void paint_img(QImage src_img);
 };

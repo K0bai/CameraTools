@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>698</width>
-    <height>531</height>
+    <width>704</width>
+    <height>649</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -145,7 +145,7 @@
    <widget class="QPushButton" name="pushButton_StartShow">
     <property name="geometry">
      <rect>
-      <x>20</x>
+      <x>10</x>
       <y>140</y>
       <width>75</width>
       <height>23</height>
@@ -158,10 +158,10 @@
    <widget class="QLabel" name="label_show_picture">
     <property name="geometry">
      <rect>
-      <x>120</x>
-      <y>140</y>
-      <width>561</width>
-      <height>331</height>
+      <x>10</x>
+      <y>180</y>
+      <width>671</width>
+      <height>371</height>
      </rect>
     </property>
     <property name="autoFillBackground">
@@ -180,13 +180,26 @@
      <set>Qt::AlignCenter</set>
     </property>
    </widget>
+   <widget class="QPushButton" name="pushButton_Grab">
+    <property name="geometry">
+     <rect>
+      <x>100</x>
+      <y>140</y>
+      <width>75</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>抓拍</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>698</width>
+     <width>704</width>
      <height>23</height>
     </rect>
    </property>
@@ -213,17 +226,34 @@
    <slot>button_startshow_click()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>65</x>
-     <y>274</y>
+     <x>55</x>
+     <y>197</y>
     </hint>
     <hint type="destinationlabel">
-     <x>25</x>
-     <y>316</y>
+     <x>31</x>
+     <y>161</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton_Grab</sender>
+   <signal>clicked()</signal>
+   <receiver>CameraToolsClass</receiver>
+   <slot>button_grab_click()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>140</x>
+     <y>187</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>191</x>
+     <y>165</y>
     </hint>
    </hints>
   </connection>
  </connections>
  <slots>
   <slot>button_startshow_click()</slot>
+  <slot>button_grab_click()</slot>
  </slots>
 </ui>

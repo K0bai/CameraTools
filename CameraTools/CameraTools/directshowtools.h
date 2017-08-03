@@ -14,6 +14,7 @@
 #include <objbase.h>
 
 #include "qthread.h"
+#include "qimage.h"
 
 extern "C" {
 #include <libavdevice/avdevice.h>
@@ -64,6 +65,8 @@ typedef struct tagVIDEOINFOHEADER2 {
 
 class DirectShowTools : public QThread
 {
+	Q_OBJECT
+
 public:
     DirectShowTools();
     // 将图像数据编码为H264的函数，暂时需要多参数
@@ -91,11 +94,14 @@ public:
 
     CameraDeviceInfo GetCameraDeviceInfo(IMoniker* pMoniker);
     std::vector<CameraDeviceInfo> ListCameraDevice();
+	void ConfigCamera();
 
     void Destory();
 
 protected:
 	void run();
+signals:
+	void send_image_data(QImage src_img);
 private:
     // 从摄像头获取数据的变量
     AVCodecContext *m_InputCodecCtx;
@@ -108,6 +114,8 @@ private:
     AVFormatContext *m_OutputFormatCtx;
     AVFrame *m_OutputFrame;
     AVStream *m_OutputVideoStream;
+
+
 };
 
 #endif // DIRECTSHOWTOOLS_H
