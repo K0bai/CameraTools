@@ -52,7 +52,7 @@ public:
     {
         if (CameraToolsClass->objectName().isEmpty())
             CameraToolsClass->setObjectName(QStringLiteral("CameraToolsClass"));
-        CameraToolsClass->resize(704, 649);
+        CameraToolsClass->resize(698, 649);
         centralWidget = new QWidget(CameraToolsClass);
         centralWidget->setObjectName(QStringLiteral("centralWidget"));
         groupBox = new QGroupBox(centralWidget);
@@ -60,10 +60,10 @@ public:
         groupBox->setGeometry(QRect(10, 10, 671, 111));
         comboBox_Camera = new QComboBox(groupBox);
         comboBox_Camera->setObjectName(QStringLiteral("comboBox_Camera"));
-        comboBox_Camera->setGeometry(QRect(80, 20, 181, 22));
+        comboBox_Camera->setGeometry(QRect(70, 20, 181, 22));
         label = new QLabel(groupBox);
         label->setObjectName(QStringLiteral("label"));
-        label->setGeometry(QRect(30, 30, 54, 12));
+        label->setGeometry(QRect(20, 20, 54, 12));
         label_2 = new QLabel(groupBox);
         label_2->setObjectName(QStringLiteral("label_2"));
         label_2->setGeometry(QRect(20, 60, 61, 16));
@@ -104,7 +104,7 @@ public:
         CameraToolsClass->setCentralWidget(centralWidget);
         menuBar = new QMenuBar(CameraToolsClass);
         menuBar->setObjectName(QStringLiteral("menuBar"));
-        menuBar->setGeometry(QRect(0, 0, 704, 23));
+        menuBar->setGeometry(QRect(0, 0, 698, 23));
         CameraToolsClass->setMenuBar(menuBar);
         mainToolBar = new QToolBar(CameraToolsClass);
         mainToolBar->setObjectName(QStringLiteral("mainToolBar"));
@@ -116,6 +116,7 @@ public:
         retranslateUi(CameraToolsClass);
         QObject::connect(pushButton_StartShow, SIGNAL(clicked()), CameraToolsClass, SLOT(button_startshow_click()));
         QObject::connect(pushButton_Grab, SIGNAL(clicked()), CameraToolsClass, SLOT(button_grab_click()));
+        QObject::connect(comboBox_Camera, SIGNAL(currentIndexChanged(int)), CameraToolsClass, SLOT(combobox_camera_change()));
 
         QMetaObject::connectSlotsByName(CameraToolsClass);
     } // setupUi

@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>704</width>
+    <width>698</width>
     <height>649</height>
    </rect>
   </property>
@@ -29,7 +29,7 @@
     <widget class="QComboBox" name="comboBox_Camera">
      <property name="geometry">
       <rect>
-       <x>80</x>
+       <x>70</x>
        <y>20</y>
        <width>181</width>
        <height>22</height>
@@ -39,8 +39,8 @@
     <widget class="QLabel" name="label">
      <property name="geometry">
       <rect>
-       <x>30</x>
-       <y>30</y>
+       <x>20</x>
+       <y>20</y>
        <width>54</width>
        <height>12</height>
       </rect>
@@ -199,7 +199,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>704</width>
+     <width>698</width>
      <height>23</height>
     </rect>
    </property>
@@ -251,9 +251,26 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>comboBox_Camera</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>CameraToolsClass</receiver>
+   <slot>combobox_camera_change()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>207</x>
+     <y>72</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>227</x>
+     <y>189</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>button_startshow_click()</slot>
   <slot>button_grab_click()</slot>
+  <slot>combobox_camera_change()</slot>
  </slots>
 </ui>

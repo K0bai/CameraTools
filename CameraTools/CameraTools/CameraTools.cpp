@@ -1,5 +1,6 @@
 #include "CameraTools.h"
 #include <qmessagebox.h>
+#include <qdatetime.h>
 
 CameraTools::CameraTools(QWidget *parent)
 	: QMainWindow(parent)
@@ -8,24 +9,26 @@ CameraTools::CameraTools(QWidget *parent)
 
 	b_grab = false;
 
-	DirectShowTools ds;
-	std::vector<CameraDeviceInfo> camera_device_list;
-	camera_device_list = ds.ListCameraDevice();
+	CameraConfig cc;
+	camera_device_list = cc.ListCameraDevice();
 
 	if (camera_device_list.size() != 0) {
 		for (int i = 0; i < camera_device_list.size(); ++i)
 		{
 			ui.comboBox_Camera->addItems((QStringList)camera_device_list[i].friend_name.c_str());
 		}
-		ShowCameraInfo(camera_device_list, 1);
+		ui.comboBox_Camera->setCurrentIndex(0);
+		ShowCameraInfo(camera_device_list, 0);
 	}
 	
 	
 }
 void CameraTools::ShowCameraInfo(std::vector<CameraDeviceInfo>& camera_info, int index)
 {
-	ui.comboBox_Camera->setCurrentIndex(index);
-
+	ui.comboBox_DataFps->clear();
+	ui.comboBox_DataType->clear();
+	ui.comboBox_DataResolution->clear();
+	ui.comboBox_DataBit->clear();
 	std::set<std::string>::iterator it;
 	for (it = camera_info[index].data_type.begin(); 
 		it != camera_info[index].data_type.end(); it++) {
@@ -58,22 +61,49 @@ void CameraTools::paint_img(QImage src_img)
 	ui.label_show_picture->setPixmap(QPixmap::fromImage(src_img));
 	if (b_grab) {
 		b_grab = false;
-		src_img.save("2.jpeg");
+		QDateTime time = QDateTime::currentDateTime();
+		QString str = time.toString("yyyyMMddhhmmsszzz") + ".jpg";
+		src_img.save(str);
 	}
 }
 
 void CameraTools::button_startshow_click()
 {
-	QMessageBox::about(NULL, "1", "test");
-
-	ds1 = new DirectShowTools();
-//	ds1->ConfigCamera();
-	connect(ds1, SIGNAL(send_image_data(QImage)), this,
-		SLOT(paint_img(QImage)), Qt::QueuedConnection);
-	ds1->start();
+	QString str = ui.pushButton_StartShow->text();
+	if (str == QStringLiteral("开始显示")) {
+		ds1 = new DirectShowTools();
+		connect(ds1, SIGNAL(send_image_data(QImage)), this,
+			SLOT(paint_img(QImage)), Qt::QueuedConnection);
+		ds1->start();
+		ui.pushButton_StartShow->setText(QStringLiteral("停止显示"));
+	}
+	else {
+		connect(this, SIGNAL(ThreadStop()), ds1,
+			    SLOT(ThreadStopFunc()), Qt::QueuedConnection);
+		emit ThreadStop();
+		ui.pushButton_StartShow->setText(QStringLiteral("开始显示"));
+	}
 }
 
 void CameraTools::button_grab_click()
 {
 	b_grab = true;
+//	CameraConfig cc;
+//	cc.ConfigCamera();
+}
+
+void CameraTools::button_addmask_click()
+{
+	cv::Mat src_img = cv::Mat::zeros(480, 640, CV_8UC3);
+
+	cv::Mat src1 = cv::imread("logo.png");
+	ds1->m_WaterMaskImg = cv::Mat::zeros(480, 640, CV_8UC3);
+	src1.copyTo(ds1->m_WaterMaskImg(cv::Rect(10, 10, src1.cols, src1.rows)));
+	ds1->m_MaskFlag = true;
+}
+
+void CameraTools::combobox_camera_change()
+{
+	int i = ui.comboBox_Camera->currentIndex();
+	ShowCameraInfo(camera_device_list, i);
 }
