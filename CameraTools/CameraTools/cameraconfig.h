@@ -29,7 +29,6 @@ struct CameraDeviceInfo {
 	std::set<std::string, classCompare> data_resolution;
 	std::set<std::string, classCompare> data_bit;
 	std::set<std::string, classCompare> data_fps;
-	std::vector< std::vector<std::string> > data;
 };
 
 typedef struct tagVIDEOINFOHEADER2 {

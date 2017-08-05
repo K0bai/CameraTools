@@ -21,13 +21,27 @@ class DirectShowTools : public QThread
 	Q_OBJECT
 
 public:
-	// 水印图像
+	
+	// 0表示不添加水印，1表示添加单张图片水印，2表示添加gif水印
+	int m_MaskFlag;
+	int m_Transparency;
+
+	// 水印普通图像
 	cv::Mat m_WaterMaskImg;
 	cv::Mat m_MaskImg;
-	bool m_MaskFlag;
 	
+	// 水印gif图像
+	std::vector<cv::Mat> m_WaterMaskGifImg;
+	int m_ShowIndex;
+	int m_Internal;
+
 public:
     DirectShowTools();
+	// 水印相关
+	void AddWaterMask(cv::Mat& img);
+
+
+
     // 将图像数据编码为MP4的相关函数，暂时需要多参数
 	int MP4OutputConfig(const std::string& output_name);
 	AVStream *add_video_stream(enum AVCodecID codec_id);

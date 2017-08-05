@@ -193,6 +193,32 @@
      <string>抓拍</string>
     </property>
    </widget>
+   <widget class="QPushButton" name="pushButton_addmask">
+    <property name="geometry">
+     <rect>
+      <x>190</x>
+      <y>140</y>
+      <width>75</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>添加水印</string>
+    </property>
+   </widget>
+   <widget class="QSlider" name="horizontalSlider_transparency">
+    <property name="geometry">
+     <rect>
+      <x>280</x>
+      <y>140</y>
+      <width>111</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="orientation">
+     <enum>Qt::Horizontal</enum>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
@@ -267,10 +293,44 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>pushButton_addmask</sender>
+   <signal>clicked()</signal>
+   <receiver>CameraToolsClass</receiver>
+   <slot>button_addmask_click()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>254</x>
+     <y>179</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>404</x>
+     <y>176</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>horizontalSlider_transparency</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>CameraToolsClass</receiver>
+   <slot>slider_value_change()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>384</x>
+     <y>188</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>473</x>
+     <y>188</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>button_startshow_click()</slot>
   <slot>button_grab_click()</slot>
   <slot>combobox_camera_change()</slot>
+  <slot>button_addmask_click()</slot>
+  <slot>slider_value_change()</slot>
  </slots>
 </ui>

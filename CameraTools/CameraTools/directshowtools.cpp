@@ -5,8 +5,11 @@ DirectShowTools::DirectShowTools()
 {
 	m_PictureBuff = NULL;
 	m_VideoOutBuff = NULL;
-	m_MaskFlag = false;
+	m_MaskFlag = 0;
 	m_ThreadStop = false;
+	m_ShowIndex = 0;
+	m_Internal = 0;
+	m_Transparency = 0;
 }
 
 void DirectShowTools::Destory()
@@ -276,6 +279,48 @@ void DirectShowTools::write_video_frame(int &pts_num)
 	}
 }
 
+void DirectShowTools::AddWaterMask(cv::Mat& img)
+{
+	if (m_MaskFlag <= 0) {
+		return;
+	}
+
+	float tmp_tpy = m_Transparency / 100.0;
+
+	switch (m_MaskFlag)
+	{
+	case 1:
+		cv::add(tmp_tpy*img(cv::Rect(10, 10, m_WaterMaskImg.cols, m_WaterMaskImg.rows)),
+			(1 - tmp_tpy)*m_WaterMaskImg, img(cv::Rect(10, 10, m_WaterMaskImg.cols, m_WaterMaskImg.rows)),
+			m_MaskImg, -1);
+		break;
+	case 2:
+	{
+		if (m_ShowIndex < m_WaterMaskGifImg.size()) {
+			int i = m_ShowIndex;
+			cv::cvtColor(m_WaterMaskGifImg[i], m_MaskImg, CV_BGR2GRAY);
+
+			cv::add(tmp_tpy*img(cv::Rect(10, 10, m_WaterMaskGifImg[i].cols, m_WaterMaskGifImg[i].rows)),
+				(1 - tmp_tpy)*m_WaterMaskGifImg[i],
+				img(cv::Rect(10, 10, m_WaterMaskGifImg[i].cols, m_WaterMaskGifImg[i].rows)),
+				m_MaskImg, -1);
+
+			if (m_Internal >= 4) {
+				m_ShowIndex++;
+				m_Internal = 0;
+			}
+			m_Internal++;
+		}
+		else {
+			m_ShowIndex = 0;
+		}
+		break;
+	}
+	default:
+		break;
+	}
+}
+
 void DirectShowTools::run()
 {
 	std::vector<CameraDeviceInfo> camera_device_list;
@@ -286,7 +331,7 @@ void DirectShowTools::run()
 	avcodec_register_all();
 	av_register_all();
 
-	std::string camera_name = "video=" + camera_device_list[1].friend_name;
+	std::string camera_name = "video=" + camera_device_list[0].friend_name;
 	int video_stream = 1;
 	CameraInputInit(camera_name, video_stream);
 
@@ -316,10 +361,8 @@ void DirectShowTools::run()
 
 		cv::Mat img(m_InputFrame->height, m_InputFrame->width, CV_8UC3, m_InputFrameRGB->data[0]);
 		
-		// 水印
-		if (m_MaskFlag) {
-			cv::addWeighted(img, 1, m_WaterMaskImg, 1, 0, img, -1);
-		}
+		// 添加水印
+		AddWaterMask(img);
 		// opencv默认是BGR排序，转到QT中显示需要RGB排序
 		cv::cvtColor(img, img, CV_BGR2RGB);
 
