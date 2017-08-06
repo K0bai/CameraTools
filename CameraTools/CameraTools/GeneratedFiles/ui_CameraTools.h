@@ -47,6 +47,7 @@ public:
     QPushButton *pushButton_Grab;
     QPushButton *pushButton_addmask;
     QSlider *horizontalSlider_transparency;
+    QPushButton *pushButton_StartCapture;
     QMenuBar *menuBar;
     QToolBar *mainToolBar;
     QStatusBar *statusBar;
@@ -103,14 +104,17 @@ public:
         label_show_picture->setAlignment(Qt::AlignCenter);
         pushButton_Grab = new QPushButton(centralWidget);
         pushButton_Grab->setObjectName(QStringLiteral("pushButton_Grab"));
-        pushButton_Grab->setGeometry(QRect(100, 140, 75, 23));
+        pushButton_Grab->setGeometry(QRect(190, 140, 75, 23));
         pushButton_addmask = new QPushButton(centralWidget);
         pushButton_addmask->setObjectName(QStringLiteral("pushButton_addmask"));
-        pushButton_addmask->setGeometry(QRect(190, 140, 75, 23));
+        pushButton_addmask->setGeometry(QRect(280, 140, 75, 23));
         horizontalSlider_transparency = new QSlider(centralWidget);
         horizontalSlider_transparency->setObjectName(QStringLiteral("horizontalSlider_transparency"));
-        horizontalSlider_transparency->setGeometry(QRect(280, 140, 111, 22));
+        horizontalSlider_transparency->setGeometry(QRect(370, 140, 111, 22));
         horizontalSlider_transparency->setOrientation(Qt::Horizontal);
+        pushButton_StartCapture = new QPushButton(centralWidget);
+        pushButton_StartCapture->setObjectName(QStringLiteral("pushButton_StartCapture"));
+        pushButton_StartCapture->setGeometry(QRect(100, 140, 75, 23));
         CameraToolsClass->setCentralWidget(centralWidget);
         menuBar = new QMenuBar(CameraToolsClass);
         menuBar->setObjectName(QStringLiteral("menuBar"));
@@ -129,6 +133,7 @@ public:
         QObject::connect(comboBox_Camera, SIGNAL(currentIndexChanged(int)), CameraToolsClass, SLOT(combobox_camera_change()));
         QObject::connect(pushButton_addmask, SIGNAL(clicked()), CameraToolsClass, SLOT(button_addmask_click()));
         QObject::connect(horizontalSlider_transparency, SIGNAL(valueChanged(int)), CameraToolsClass, SLOT(slider_value_change()));
+        QObject::connect(pushButton_StartCapture, SIGNAL(clicked()), CameraToolsClass, SLOT(button_startcapture_click()));
 
         QMetaObject::connectSlotsByName(CameraToolsClass);
     } // setupUi
@@ -142,10 +147,11 @@ public:
         label_3->setText(QApplication::translate("CameraToolsClass", "\345\210\206\350\276\250\347\216\207\357\274\232", 0));
         label_4->setText(QApplication::translate("CameraToolsClass", "\345\233\276\345\203\217\344\275\215\346\267\261\357\274\232", 0));
         label_5->setText(QApplication::translate("CameraToolsClass", "\345\270\247\347\216\207\357\274\232", 0));
-        pushButton_StartShow->setText(QApplication::translate("CameraToolsClass", "\345\274\200\345\247\213\346\230\276\347\244\272", 0));
+        pushButton_StartShow->setText(QApplication::translate("CameraToolsClass", "\345\274\200\345\247\213\351\242\204\350\247\210", 0));
         label_show_picture->setText(QApplication::translate("CameraToolsClass", "\346\230\276\347\244\272\345\233\276\347\211\207", 0));
         pushButton_Grab->setText(QApplication::translate("CameraToolsClass", "\346\212\223\346\213\215", 0));
         pushButton_addmask->setText(QApplication::translate("CameraToolsClass", "\346\267\273\345\212\240\346\260\264\345\215\260", 0));
+        pushButton_StartCapture->setText(QApplication::translate("CameraToolsClass", "\345\274\200\345\247\213\345\275\225\345\203\217", 0));
     } // retranslateUi
 
 };

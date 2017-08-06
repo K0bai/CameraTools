@@ -54,6 +54,10 @@ int CameraConfig::GetSubType(GUID guid, char* buffer) {
 		snprintf(buffer, 256, "RGB24");
 		return 0;
 	}
+	if (guid == WMMEDIASUBTYPE_I420) {
+		snprintf(buffer, 256, "I420");
+		return 0;
+	}
 	return -1;
 }
 
@@ -103,6 +107,7 @@ void AddCameraInfo(CameraDeviceInfo &camera_info, const std::string &data_type,
 	}
 }
 */
+
 CameraDeviceInfo CameraConfig::GetCameraDeviceInfo(IMoniker* pMoniker)
 {
 	CameraDeviceInfo camera_info;
@@ -134,8 +139,9 @@ CameraDeviceInfo CameraConfig::GetCameraDeviceInfo(IMoniker* pMoniker)
 
 		IEnumMediaTypes *mtEnum = NULL;
 		AM_MEDIA_TYPE   *mt = NULL;
-		if (FAILED(pin->EnumMediaTypes(&mtEnum)))
+		if (FAILED(pin->EnumMediaTypes(&mtEnum))) {
 			break;
+		}
 		mtEnum->Reset();
 		ULONG mt_fetched = 0;
 		while (SUCCEEDED(mtEnum->Next(1, &mt, &mt_fetched)) && mt_fetched) {
@@ -171,15 +177,14 @@ CameraDeviceInfo CameraConfig::GetCameraDeviceInfo(IMoniker* pMoniker)
 			if (bmi) {
 				std::string data_type_str(subtypebuf);
 				camera_info.data_type.insert(data_type_str);
-				camera_info.data_resolution.insert(std::to_string(bmi->biWidth) + " * "
+				camera_info.data_resolution.insert(std::to_string(bmi->biWidth) + " x "
 					+ std::to_string(bmi->biHeight));
 				camera_info.data_bit.insert(std::to_string(bmi->biBitCount));
 				camera_info.data_fps.insert(std::to_string((int)1e7 / avg_time));
-
 			}
-		}
+		}  // end while
 		pin->Release();
-	}
+	}  // end while
 	return camera_info;
 }
 
@@ -222,49 +227,52 @@ std::vector<CameraDeviceInfo> CameraConfig::ListCameraDevice()
 		if (SUCCEEDED(hr)) {
 			CameraDeviceInfo temp_camera_device_info;
 			char display_name[1024];
-			WideCharToMultiByte(CP_ACP, 0, var_name.bstrVal, -1, display_name, 1024, "", NULL);
+			WideCharToMultiByte(CP_ACP, 0, var_name.bstrVal, -1, 
+				display_name, 1024, "", NULL);
 			std::string str_temp(display_name);
 			temp_camera_device_info = GetCameraDeviceInfo(pMoniker);
 			temp_camera_device_info.friend_name = str_temp;
 			device_list.push_back(temp_camera_device_info);
 			VariantClear(&var_name);
+//			ConfigCamera(pMoniker);
 		}
 		pPropBag->Release();
 		pMoniker->Release();
-	}
+	}  // end while
 	pDevEnum->Release();
 	pEnum->Release();
 	return device_list;
 }
 
-void CameraConfig::ConfigCamera()
+void CameraConfig::ConfigCamera(IMoniker *pMoniker)
 {
-	IMediaControl *pMediaCtrl;
-	ICaptureGraphBuilder2 *pCaptureGB;
-	IBaseFilter *pBaseFilter;
+	ICaptureGraphBuilder2 *pCaptureGraphBuilder2;
+	IBaseFilter *pDeviceFilter;
+	HRESULT hRet = S_OK;
+	AM_MEDIA_TYPE* pmt = NULL;
+	LONGLONG avgTimePerFrame = 500000;
+	
+	IAMStreamConfig* pConfig;
+	int icnt, isize;
+	BYTE* pSCC = NULL;
+	pMoniker->BindToObject(0, 0, IID_IBaseFilter, (void**)&pDeviceFilter);
+	CoCreateInstance(CLSID_CaptureGraphBuilder2, NULL, CLSCTX_INPROC,
+		IID_ICaptureGraphBuilder2, (LPVOID *)&pCaptureGraphBuilder2);
+	pCaptureGraphBuilder2->FindInterface(&PIN_CATEGORY_CAPTURE, 0, pDeviceFilter, 
+		IID_IAMStreamConfig, (void**)&pConfig);
+	pConfig->GetNumberOfCapabilities(&icnt, &isize);
+	pSCC = new BYTE[isize];
+	pConfig->GetStreamCaps(0, &pmt, pSCC);
 
-	//	pMediaCtrl->Stop();
-	HRESULT hr;
-	IAMStreamConfig *pIAMStreamConfig;
-	ISpecifyPropertyPages *pISecifyPP;
+	VIDEOINFOHEADER* pvi = (VIDEOINFOHEADER*)pmt->pbFormat;
+	pvi->AvgTimePerFrame = avgTimePerFrame;
+	pvi->bmiHeader.biWidth = 176;
+	pvi->bmiHeader.biHeight = 144;
+	pvi->bmiHeader.biSizeImage = 176 * 144 * pvi->bmiHeader.biBitCount / 8;
 
-	hr = pCaptureGB->FindInterface(&PIN_CATEGORY_CAPTURE,
-		&MEDIATYPE_Video, pBaseFilter, IID_IAMStreamConfig,
-		(void **)&pIAMStreamConfig);
+	hRet = pConfig->SetFormat(pmt);
 
-	if (SUCCEEDED(hr)) {
-		CAUUID cauuid;
-		hr = pIAMStreamConfig->QueryInterface(IID_ISpecifyPropertyPages, (void**)&pISecifyPP);
-		if (hr == S_OK)
-		{
-			HWND p;
-			hr = pISecifyPP->GetPages(&cauuid);
-			hr = OleCreatePropertyFrame(p, 30, 30, NULL, 1, (IUnknown**)&pIAMStreamConfig, cauuid.cElems, (GUID*)cauuid.pElems, 0, 0, NULL);
-			CoTaskMemFree(cauuid.pElems);
+	int k = 0;
+//	_DeleteMediaType(pmt);
 
-		}
-	}
-	pIAMStreamConfig->Release();
-	pISecifyPP->Release();
-	pMediaCtrl->Run();
 }

@@ -16,6 +16,22 @@ extern "C" {
 #include <opencv2/opencv.hpp>
 
 
+// 抓拍图像相关的状态参数
+#define DST_GRAB_READY 0
+#define DST_GRAB_PROCESSING 1
+#define DST_GRAB_SAVING 2
+
+// 添加水印相关状态参数
+#define DST_WATERMASK_NONE 0
+#define DST_WATERMASK_RGB 1
+#define DST_WATERMASK_GIF 2
+
+// 录制视频相关状态参数
+#define DST_SAVEVIDEO_NONE 0
+#define DST_SAVEVIDEO_INIT 1
+#define DST_SAVEVIDEO_SAVING 2
+#define DST_SAVEVIDEO_END 3
+
 class DirectShowTools : public QThread
 {
 	Q_OBJECT
@@ -35,47 +51,53 @@ public:
 	int m_ShowIndex;
 	int m_Internal;
 
+	// 抓拍图像
+	cv::Mat m_GrabImgMat;
+	int m_GrabImgFlag;
+
+	int m_SaveVideoFlag;
+	int m_PtsNum;
+
+	std::string m_CameraName;
+	std::string m_SaveVideoPath;
+
 public:
     DirectShowTools();
-	// 水印相关
-	void AddWaterMask(cv::Mat& img);
+	void AddWaterMask(cv::Mat& img);					 // 添加水印时的处理函数
 
+	int MP4OutputConfig(const std::string& output_name); // 存储为MP4文件的初始化配置
 
+	/* 
+	 * 引用几个函数修改自muxing.c 文档
+	 */
+	AVStream *AddVideoStream(enum AVCodecID codec_id);   
+	void OpenOutputVideo();								 
+	void WriteVideoFrame(int &pts_num);
 
-    // 将图像数据编码为MP4的相关函数，暂时需要多参数
-	int MP4OutputConfig(const std::string& output_name);
-	AVStream *add_video_stream(enum AVCodecID codec_id);
-	void open_video();
-	void write_video_frame(int &pts_num);
+	int FlushEncoder(unsigned int stream_index);		// 在退出时将剩余的图像数据输出到文件
+	void DestoryInputParam();							
+	void DestoryVideoParam();
 
+	int CameraInputInit(const std::string& camera_name, int &video_stream); // 获取摄像头图像数据的初始化函数
     
-
-    // 在退出时将剩余的图像数据输出到文件
-    int flush_encoder(unsigned int stream_index);
-
-	int CameraInputInit(const std::string& camera_name, int &video_stream);
-
-    AVCodecContext *GetInputCodecCtx() { return m_InputCodecCtx; }
-    AVCodecContext *GetOutputCodecCtx() { return m_OutputCodecCtx; }
-    AVFormatContext *GetInputFormatCtx() { return m_InputFormatCtx; }
-    AVFormatContext *GetOutputFormatCtx() { return m_OutputFormatCtx; }
-    AVFrame *GetInputFrame() { return m_InputFrame; }
-    AVFrame *GetInputFrameRGB() { return m_InputFrameRGB; }
-    AVFrame *GetOutputFrame() { return m_OutputFrame; }
-    AVStream *GetOutputVideoStream() { return m_OutputVideoStream; }
-
-    void Destory();
-
+	int GetImageData(int& video_stream, AVPacket& packet, SwsContext* &img_convert_ctx);
+	void SaveVideo(cv::Mat& img);
+	void GrabImage(cv::Mat& img);
+	void PreviewImage(cv::Mat& img);
 protected:
-	void run();
+	void run();								// 获取数据与存储数据的工作线程
 signals:
-	void send_image_data(QImage src_img);
+	void SendImageData(QImage src_img);		// 将图像数据发送到主UI进行显示
+	void SendImageGrabMsg();				// 发送抓拍图像信号给指定槽函数
 
 private slots:
-	void ThreadStopFunc();
+	void ThreadStopFunc();					// 停止获取图像数据线程
+	void SaveGrabImage();					// 接受抓图信号，进行存图
 
 private:
-    // 从摄像头获取数据的变量
+	/*
+	 * 从摄像头获取图像数据的相关参数
+	 */
     AVCodecContext *m_InputCodecCtx;
     AVFormatContext *m_InputFormatCtx;
     AVFrame *m_InputFrame;
@@ -83,7 +105,9 @@ private:
 
 	
 
-    // mp4编码图像数据的变量
+	/*
+	 * MP4编码相关的参数
+	 */
     AVCodecContext *m_OutputCodecCtx;
     AVFormatContext *m_OutputFormatCtx;
     AVFrame *m_OutputFrame;
@@ -93,8 +117,8 @@ private:
 	uint8_t* m_VideoOutBuff;
 	int m_VideoOutBuffSize;
 
-	// 停止线程控制变量
-	bool m_ThreadStop;
+	
+	bool m_ThreadStop;						// 停止获取图像数据线程的参数
 };
 
 #endif // DIRECTSHOWTOOLS_H

@@ -19,8 +19,8 @@
 
 QT_BEGIN_MOC_NAMESPACE
 struct qt_meta_stringdata_CameraTools_t {
-    QByteArrayData data[10];
-    char stringdata0[147];
+    QByteArrayData data[11];
+    char stringdata0[173];
 };
 #define QT_MOC_LITERAL(idx, ofs, len) \
     Q_STATIC_BYTE_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(len, \
@@ -34,16 +34,18 @@ QT_MOC_LITERAL(1, 12, 10), // "ThreadStop"
 QT_MOC_LITERAL(2, 23, 0), // ""
 QT_MOC_LITERAL(3, 24, 22), // "button_startshow_click"
 QT_MOC_LITERAL(4, 47, 17), // "button_grab_click"
-QT_MOC_LITERAL(5, 65, 9), // "paint_img"
-QT_MOC_LITERAL(6, 75, 7), // "src_img"
-QT_MOC_LITERAL(7, 83, 22), // "combobox_camera_change"
-QT_MOC_LITERAL(8, 106, 20), // "button_addmask_click"
-QT_MOC_LITERAL(9, 127, 19) // "slider_value_change"
+QT_MOC_LITERAL(5, 65, 20), // "button_addmask_click"
+QT_MOC_LITERAL(6, 86, 25), // "button_startcapture_click"
+QT_MOC_LITERAL(7, 112, 9), // "paint_img"
+QT_MOC_LITERAL(8, 122, 7), // "src_img"
+QT_MOC_LITERAL(9, 130, 22), // "combobox_camera_change"
+QT_MOC_LITERAL(10, 153, 19) // "slider_value_change"
 
     },
     "CameraTools\0ThreadStop\0\0button_startshow_click\0"
-    "button_grab_click\0paint_img\0src_img\0"
-    "combobox_camera_change\0button_addmask_click\0"
+    "button_grab_click\0button_addmask_click\0"
+    "button_startcapture_click\0paint_img\0"
+    "src_img\0combobox_camera_change\0"
     "slider_value_change"
 };
 #undef QT_MOC_LITERAL
@@ -54,7 +56,7 @@ static const uint qt_meta_data_CameraTools[] = {
        7,       // revision
        0,       // classname
        0,    0, // classinfo
-       7,   14, // methods
+       8,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
@@ -62,15 +64,16 @@ static const uint qt_meta_data_CameraTools[] = {
        1,       // signalCount
 
  // signals: name, argc, parameters, tag, flags
-       1,    0,   49,    2, 0x06 /* Public */,
+       1,    0,   54,    2, 0x06 /* Public */,
 
  // slots: name, argc, parameters, tag, flags
-       3,    0,   50,    2, 0x08 /* Private */,
-       4,    0,   51,    2, 0x08 /* Private */,
-       5,    1,   52,    2, 0x08 /* Private */,
-       7,    0,   55,    2, 0x08 /* Private */,
-       8,    0,   56,    2, 0x08 /* Private */,
-       9,    0,   57,    2, 0x08 /* Private */,
+       3,    0,   55,    2, 0x08 /* Private */,
+       4,    0,   56,    2, 0x08 /* Private */,
+       5,    0,   57,    2, 0x08 /* Private */,
+       6,    0,   58,    2, 0x08 /* Private */,
+       7,    1,   59,    2, 0x08 /* Private */,
+       9,    0,   62,    2, 0x08 /* Private */,
+      10,    0,   63,    2, 0x08 /* Private */,
 
  // signals: parameters
     QMetaType::Void,
@@ -78,8 +81,9 @@ static const uint qt_meta_data_CameraTools[] = {
  // slots: parameters
     QMetaType::Void,
     QMetaType::Void,
-    QMetaType::Void, QMetaType::QImage,    6,
     QMetaType::Void,
+    QMetaType::Void,
+    QMetaType::Void, QMetaType::QImage,    8,
     QMetaType::Void,
     QMetaType::Void,
 
@@ -95,10 +99,11 @@ void CameraTools::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id,
         case 0: _t->ThreadStop(); break;
         case 1: _t->button_startshow_click(); break;
         case 2: _t->button_grab_click(); break;
-        case 3: _t->paint_img((*reinterpret_cast< QImage(*)>(_a[1]))); break;
-        case 4: _t->combobox_camera_change(); break;
-        case 5: _t->button_addmask_click(); break;
-        case 6: _t->slider_value_change(); break;
+        case 3: _t->button_addmask_click(); break;
+        case 4: _t->button_startcapture_click(); break;
+        case 5: _t->paint_img((*reinterpret_cast< QImage(*)>(_a[1]))); break;
+        case 6: _t->combobox_camera_change(); break;
+        case 7: _t->slider_value_change(); break;
         default: ;
         }
     } else if (_c == QMetaObject::IndexOfMethod) {
@@ -139,13 +144,13 @@ int CameraTools::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 7)
+        if (_id < 8)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 7;
+        _id -= 8;
     } else if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 7)
+        if (_id < 8)
             *reinterpret_cast<int*>(_a[0]) = -1;
-        _id -= 7;
+        _id -= 8;
     }
     return _id;
 }

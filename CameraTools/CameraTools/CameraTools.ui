@@ -152,7 +152,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>开始显示</string>
+     <string>开始预览</string>
     </property>
    </widget>
    <widget class="QLabel" name="label_show_picture">
@@ -183,7 +183,7 @@
    <widget class="QPushButton" name="pushButton_Grab">
     <property name="geometry">
      <rect>
-      <x>100</x>
+      <x>190</x>
       <y>140</y>
       <width>75</width>
       <height>23</height>
@@ -196,7 +196,7 @@
    <widget class="QPushButton" name="pushButton_addmask">
     <property name="geometry">
      <rect>
-      <x>190</x>
+      <x>280</x>
       <y>140</y>
       <width>75</width>
       <height>23</height>
@@ -209,7 +209,7 @@
    <widget class="QSlider" name="horizontalSlider_transparency">
     <property name="geometry">
      <rect>
-      <x>280</x>
+      <x>370</x>
       <y>140</y>
       <width>111</width>
       <height>22</height>
@@ -217,6 +217,19 @@
     </property>
     <property name="orientation">
      <enum>Qt::Horizontal</enum>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_StartCapture">
+    <property name="geometry">
+     <rect>
+      <x>100</x>
+      <y>140</y>
+      <width>75</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>开始录像</string>
     </property>
    </widget>
   </widget>
@@ -268,8 +281,8 @@
    <slot>button_grab_click()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>140</x>
-     <y>187</y>
+     <x>230</x>
+     <y>197</y>
     </hint>
     <hint type="destinationlabel">
      <x>191</x>
@@ -300,8 +313,8 @@
    <slot>button_addmask_click()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>254</x>
-     <y>179</y>
+     <x>344</x>
+     <y>197</y>
     </hint>
     <hint type="destinationlabel">
      <x>404</x>
@@ -325,6 +338,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>pushButton_StartCapture</sender>
+   <signal>clicked()</signal>
+   <receiver>CameraToolsClass</receiver>
+   <slot>button_startcapture_click()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>141</x>
+     <y>186</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>186</x>
+     <y>204</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>button_startshow_click()</slot>
@@ -332,5 +361,6 @@
   <slot>combobox_camera_change()</slot>
   <slot>button_addmask_click()</slot>
   <slot>slider_value_change()</slot>
+  <slot>button_startcapture_click()</slot>
  </slots>
 </ui>

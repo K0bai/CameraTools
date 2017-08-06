@@ -1,18 +1,24 @@
 #include "directshowtools.h"
 #include "cameraconfig.h"
+#include <qdatetime.h>
 
 DirectShowTools::DirectShowTools()
 {
 	m_PictureBuff = NULL;
 	m_VideoOutBuff = NULL;
-	m_MaskFlag = 0;
+	m_MaskFlag = DST_WATERMASK_NONE;
 	m_ThreadStop = false;
 	m_ShowIndex = 0;
 	m_Internal = 0;
 	m_Transparency = 0;
+	m_GrabImgFlag = 0;
+	m_SaveVideoFlag = DST_SAVEVIDEO_NONE;
+
+	connect(this, SIGNAL(SendImageGrabMsg()), this,
+		SLOT(SaveGrabImage()), Qt::QueuedConnection);
 }
 
-void DirectShowTools::Destory()
+void DirectShowTools::DestoryInputParam()
 {
     if (m_InputCodecCtx != NULL) {
         avcodec_close(m_InputCodecCtx);
@@ -26,26 +32,30 @@ void DirectShowTools::Destory()
     if (m_InputFrameRGB != NULL) {
         av_free(m_InputFrameRGB);
     }
-    if (m_OutputCodecCtx != NULL) {
-        avcodec_close(m_OutputCodecCtx);
-    }
-    if (m_OutputFormatCtx != NULL) {
-        avio_close(m_OutputFormatCtx->pb);
-        avformat_free_context(m_OutputFormatCtx);
-    }
-    if (m_OutputFrame != NULL) {
-        av_free(m_OutputFrame);
-    }
-    if (m_OutputVideoStream != NULL) {
+}
+
+void DirectShowTools::DestoryVideoParam()
+{
+	if (m_OutputCodecCtx != NULL) {
+	//	avcodec_close(m_OutputCodecCtx);
+	}
+	if (m_OutputFormatCtx != NULL) {
+		avio_close(m_OutputFormatCtx->pb);
+		avformat_free_context(m_OutputFormatCtx);
+	}
+	if (m_OutputFrame != NULL) {
+		av_free(m_OutputFrame);
+	}
+	if (m_OutputVideoStream != NULL) {
 		if (m_OutputVideoStream) {
 			av_free(m_PictureBuff);
 			av_free(m_VideoOutBuff);
 		}
-        avcodec_close(m_OutputVideoStream->codec);
-    }
+		avcodec_close(m_OutputVideoStream->codec);
+	}
 }
 
-int DirectShowTools::flush_encoder(unsigned int stream_index) 
+int DirectShowTools::FlushEncoder(unsigned int stream_index) 
 {
     int ret;
     int got_frame;
@@ -58,7 +68,7 @@ int DirectShowTools::flush_encoder(unsigned int stream_index)
         enc_pkt.size = 0;
         av_init_packet(&enc_pkt);
         ret = avcodec_encode_video2(m_OutputFormatCtx->streams[stream_index]->codec,
-									&enc_pkt, NULL, &got_frame);
+			&enc_pkt, NULL, &got_frame);
         av_frame_free(NULL);
 		if (ret < 0) {
 			break;
@@ -77,21 +87,30 @@ int DirectShowTools::flush_encoder(unsigned int stream_index)
 
 int DirectShowTools::CameraInputInit(const std::string& camera_name, int &video_stream)
 {
+	avdevice_register_all();
+	avcodec_register_all();
+	av_register_all();
+
     AVCodec * pCodec;
     m_InputFormatCtx = avformat_alloc_context();
     AVInputFormat *iformat = av_find_input_format("dshow");
-	if (avformat_open_input(&m_InputFormatCtx, camera_name.c_str(), iformat, NULL) != 0) {
-		return -12;
+	AVDictionary *options = NULL; 
+//	av_dict_set(&options, "video_size", "1280x720", 0);
+//	av_dict_set(&options, "framerate", "5", 0);
+//	av_dict_set(&options, "frame_bits", "12", 0);
+//	av_dict_set(&options, "pix_fmt", "I420", 0);
+	std::string cname = "video=" + camera_name;
+	if (avformat_open_input(&m_InputFormatCtx, 
+		cname.c_str(), iformat, &options) != 0) {
+		return -1;
 	}
 	if (avformat_find_stream_info(m_InputFormatCtx, NULL) < 0) {
-		return -13;
+		return -2;
 	}
     av_dump_format(m_InputFormatCtx, 0, camera_name.c_str(), 0);
 
-    for (int i = 0; i < m_InputFormatCtx->nb_streams; i++)
-    {
-        if (m_InputFormatCtx->streams[i]->codec->coder_type == AVMEDIA_TYPE_VIDEO)
-        {
+    for (int i = 0; i < m_InputFormatCtx->nb_streams; i++) {
+        if (m_InputFormatCtx->streams[i]->codec->coder_type == AVMEDIA_TYPE_VIDEO) {
             video_stream = i;
             break;
         }
@@ -115,15 +134,17 @@ int DirectShowTools::CameraInputInit(const std::string& camera_name, int &video_
     numBytes = avpicture_get_size(pFormat, m_InputCodecCtx->width, m_InputCodecCtx->height);
     buffer = (uint8_t *)av_malloc(numBytes * sizeof(uint8_t));
     avpicture_fill((AVPicture *)m_InputFrameRGB, buffer, pFormat, 
-					m_InputCodecCtx->width, m_InputCodecCtx->height);
+		m_InputCodecCtx->width, m_InputCodecCtx->height);
 	return 0;
 }
 
 int DirectShowTools::MP4OutputConfig(const std::string& output_name)
 {
-	avformat_alloc_output_context2(&m_OutputFormatCtx, NULL, NULL, output_name.c_str());
+	avformat_alloc_output_context2(&m_OutputFormatCtx, NULL,
+		NULL, output_name.c_str());
 	if (!m_OutputFormatCtx) {
-		avformat_alloc_output_context2(&m_OutputFormatCtx, NULL, "mpeg", output_name.c_str());
+		avformat_alloc_output_context2(&m_OutputFormatCtx, 
+			NULL, "mpeg", output_name.c_str());
 	}
 	if (!m_OutputFormatCtx) {
 		return 0;
@@ -134,11 +155,11 @@ int DirectShowTools::MP4OutputConfig(const std::string& output_name)
 
 	m_OutputVideoStream = NULL;
 	if (m_OutputFormat->video_codec != CODEC_ID_NONE) {
-		m_OutputVideoStream = add_video_stream(m_OutputFormat->video_codec);
+		m_OutputVideoStream = AddVideoStream(m_OutputFormat->video_codec);
 	}
 
 	if (m_OutputVideoStream) {
-		open_video();
+		OpenOutputVideo();
 	}
 
 	if (!(m_OutputFormat->flags & AVFMT_NOFILE)) {
@@ -150,25 +171,22 @@ int DirectShowTools::MP4OutputConfig(const std::string& output_name)
 
 	m_OutputCodecCtx = m_OutputVideoStream->codec;
 	m_OutputFrame = av_frame_alloc();
-	m_VideoOutBuffSize = avpicture_get_size(m_OutputCodecCtx->pix_fmt, m_OutputCodecCtx->width,
-									  m_OutputCodecCtx->height);
+	m_VideoOutBuffSize = avpicture_get_size(m_OutputCodecCtx->pix_fmt, 
+		m_OutputCodecCtx->width, m_OutputCodecCtx->height);
 
 	m_PictureBuff = (uint8_t *)av_malloc(m_VideoOutBuffSize);
 
-	avpicture_fill((AVPicture *)m_OutputFrame, m_PictureBuff, m_OutputCodecCtx->pix_fmt,
-				   m_OutputCodecCtx->width, m_OutputCodecCtx->height);
+	avpicture_fill((AVPicture *)m_OutputFrame, m_PictureBuff, 
+		m_OutputCodecCtx->pix_fmt, m_OutputCodecCtx->width, 
+		m_OutputCodecCtx->height);
 
 	m_VideoOutBuff = (uint8_t *)av_malloc(m_VideoOutBuffSize);
 
 	return 0;
 }
 
-// 引用几个函数修改自muxing.c 文档
-// add_video_stream(AVFormatContext *oc, enum AVCodecID codec_id)
-// open_video(AVFormatContext *oc, AVStream *st)
-// write_video_frame(AVFormatContext *oc_m, AVStream *video_st_m, int &pts_num,
-//					 AVFrame* &m_OutputFrame, int &framecnt)
-AVStream* DirectShowTools::add_video_stream(enum AVCodecID codec_id)
+
+AVStream* DirectShowTools::AddVideoStream(enum AVCodecID codec_id)
 {
 	AVCodecContext *c;
 	AVStream *st;
@@ -178,7 +196,6 @@ AVStream* DirectShowTools::add_video_stream(enum AVCodecID codec_id)
 	if (!st) {
 		return NULL;
 	}
-
 	c = st->codec;
 
 	/* find the video encoder */
@@ -220,7 +237,7 @@ AVStream* DirectShowTools::add_video_stream(enum AVCodecID codec_id)
 	return st;
 }
 
-void DirectShowTools::open_video()
+void DirectShowTools::OpenOutputVideo()
 {
 	AVCodec *codec;
 	AVCodecContext *c;
@@ -243,7 +260,7 @@ void DirectShowTools::open_video()
 	}
 }
 
-void DirectShowTools::write_video_frame(int &pts_num)
+void DirectShowTools::WriteVideoFrame(int &pts_num)
 {
 	if (m_OutputFormatCtx->oformat->flags & AVFMT_RAWPICTURE) {
 		AVPacket pkt;
@@ -259,18 +276,20 @@ void DirectShowTools::write_video_frame(int &pts_num)
 	else {
 		int out_size = 0;
 		m_OutputFrame->pts = pts_num;
-		out_size = avcodec_encode_video(m_OutputVideoStream->codec, m_VideoOutBuff,
-										m_VideoOutBuffSize, m_OutputFrame);
+		out_size = avcodec_encode_video(m_OutputVideoStream->codec, 
+			m_VideoOutBuff,m_VideoOutBuffSize, m_OutputFrame);
 
 		if (out_size > 0) {
 			AVPacket pkt;
 			av_init_packet(&pkt);
 
-			if (m_OutputVideoStream->codec->coded_frame->pts != AV_NOPTS_VALUE)
-				pkt.pts = av_rescale_q(m_OutputVideoStream->codec->coded_frame->pts,
+			if (m_OutputVideoStream->codec->coded_frame->pts != AV_NOPTS_VALUE) {
+				pkt.pts = av_rescale_q(m_OutputVideoStream->codec->coded_frame->pts, 
 					m_OutputVideoStream->codec->time_base, m_OutputVideoStream->time_base);
-			if (m_OutputVideoStream->codec->coded_frame->key_frame)
+			}
+			if (m_OutputVideoStream->codec->coded_frame->key_frame) {
 				pkt.flags |= AV_PKT_FLAG_KEY;
+			}
 			pkt.stream_index = m_OutputVideoStream->index;
 			pkt.data = m_VideoOutBuff;
 			pkt.size = out_size;
@@ -281,7 +300,7 @@ void DirectShowTools::write_video_frame(int &pts_num)
 
 void DirectShowTools::AddWaterMask(cv::Mat& img)
 {
-	if (m_MaskFlag <= 0) {
+	if (m_MaskFlag <= DST_WATERMASK_NONE) {
 		return;
 	}
 
@@ -289,31 +308,33 @@ void DirectShowTools::AddWaterMask(cv::Mat& img)
 
 	switch (m_MaskFlag)
 	{
-	case 1:
+	case DST_WATERMASK_RGB:
 		cv::add(tmp_tpy*img(cv::Rect(10, 10, m_WaterMaskImg.cols, m_WaterMaskImg.rows)),
-			(1 - tmp_tpy)*m_WaterMaskImg, img(cv::Rect(10, 10, m_WaterMaskImg.cols, m_WaterMaskImg.rows)),
+			(1 - tmp_tpy)*m_WaterMaskImg, 
+			img(cv::Rect(10, 10, m_WaterMaskImg.cols, m_WaterMaskImg.rows)),
 			m_MaskImg, -1);
 		break;
-	case 2:
+	case DST_WATERMASK_GIF:
 	{
-		if (m_ShowIndex < m_WaterMaskGifImg.size()) {
-			int i = m_ShowIndex;
-			cv::cvtColor(m_WaterMaskGifImg[i], m_MaskImg, CV_BGR2GRAY);
-
-			cv::add(tmp_tpy*img(cv::Rect(10, 10, m_WaterMaskGifImg[i].cols, m_WaterMaskGifImg[i].rows)),
-				(1 - tmp_tpy)*m_WaterMaskGifImg[i],
-				img(cv::Rect(10, 10, m_WaterMaskGifImg[i].cols, m_WaterMaskGifImg[i].rows)),
-				m_MaskImg, -1);
-
-			if (m_Internal >= 4) {
-				m_ShowIndex++;
-				m_Internal = 0;
-			}
-			m_Internal++;
+		if (m_WaterMaskGifImg.size() == 0) {
+			break;
 		}
-		else {
+		if (m_ShowIndex >= m_WaterMaskGifImg.size()) {
 			m_ShowIndex = 0;
 		}
+		int i = m_ShowIndex;
+		cv::cvtColor(m_WaterMaskGifImg[i], m_MaskImg, CV_BGR2GRAY);
+
+		cv::add(tmp_tpy*img(cv::Rect(10, 10, m_WaterMaskGifImg[i].cols, m_WaterMaskGifImg[i].rows)),
+			(1 - tmp_tpy)*m_WaterMaskGifImg[i],
+			img(cv::Rect(10, 10, m_WaterMaskGifImg[i].cols, m_WaterMaskGifImg[i].rows)),
+			m_MaskImg, -1);
+
+		if (m_Internal >= 4) {
+			m_ShowIndex++;
+			m_Internal = 0;
+		}
+		m_Internal++;
 		break;
 	}
 	default:
@@ -321,83 +342,127 @@ void DirectShowTools::AddWaterMask(cv::Mat& img)
 	}
 }
 
+void DirectShowTools::GrabImage(cv::Mat& img)
+{
+	if (m_GrabImgFlag == DST_GRAB_PROCESSING) {
+		m_GrabImgFlag = DST_GRAB_SAVING;
+		m_GrabImgMat = img.clone();
+		emit SendImageGrabMsg();
+	}
+}
+
+void DirectShowTools::SaveGrabImage()
+{
+	QDateTime time = QDateTime::currentDateTime();
+	QString str = time.toString("yyyyMMddhhmmsszzz") + ".jpg";
+	cv::imwrite(str.toStdString(), m_GrabImgMat);
+	m_GrabImgMat.release();
+	m_GrabImgFlag = DST_GRAB_READY;
+}
+
+void DirectShowTools::PreviewImage(cv::Mat& img)
+{
+	cv::cvtColor(img, img, CV_BGR2RGB);			// opencv默认是BGR排序，转到QT中显示需要RGB排序
+	cv::Mat temp_img = img.clone();
+	QImage Qimg = QImage((const unsigned char*)(img.data), img.cols,
+		img.rows, img.cols*img.channels(), QImage::Format_RGB888);
+	emit SendImageData(Qimg);
+}
+
+void DirectShowTools::SaveVideo(cv::Mat& img)
+{
+	if (m_SaveVideoFlag == DST_SAVEVIDEO_NONE) {
+		return ;
+	}
+	else if (m_SaveVideoFlag == DST_SAVEVIDEO_INIT) {
+		QDateTime time = QDateTime::currentDateTime();
+		QString str = time.toString("yyyyMMddhhmmsszzz") + ".mp4";
+		MP4OutputConfig(m_SaveVideoPath + "/" + str.toStdString());
+		m_PtsNum = 0;
+		m_SaveVideoFlag = DST_SAVEVIDEO_SAVING;
+	}
+	else if (m_SaveVideoFlag == DST_SAVEVIDEO_SAVING) {
+		SwsContext* pSwsCxt = sws_getContext(m_InputCodecCtx->width,
+			m_InputCodecCtx->height, PIX_FMT_RGB24,m_InputCodecCtx->width, 
+			m_InputCodecCtx->height, PIX_FMT_YUV420P, SWS_BILINEAR, NULL, NULL, NULL);
+		uint8_t *rgb_src[3] = { img.data, NULL, NULL };
+		int rgb_stride[3] = { 3 * m_InputCodecCtx->width, 0, 0 };
+
+		sws_scale(pSwsCxt, rgb_src, rgb_stride,0, m_InputCodecCtx->height, 
+			((AVPicture *)m_OutputFrame)->data, ((AVPicture *)m_OutputFrame)->linesize);
+
+		WriteVideoFrame(m_PtsNum);
+		m_PtsNum++;
+		sws_freeContext(pSwsCxt);
+	}
+	else {
+		m_SaveVideoFlag = DST_SAVEVIDEO_NONE;
+		FlushEncoder(0);
+		av_write_trailer(m_OutputFormatCtx);
+		DestoryVideoParam();
+	}
+	
+}
+
+int DirectShowTools::GetImageData(int& video_stream, AVPacket& packet, SwsContext* &img_convert_ctx)
+{
+	if (packet.stream_index != video_stream) {
+		return -1;
+	}
+	int frameFinished = 0;
+	avcodec_decode_video2(m_InputCodecCtx, m_InputFrame, &frameFinished, &packet);
+	if (!frameFinished) {
+		return -1;
+	}
+	
+	img_convert_ctx = sws_getCachedContext(NULL, 
+		m_InputCodecCtx->width,
+		m_InputCodecCtx->height, 
+		m_InputCodecCtx->pix_fmt,
+		m_InputCodecCtx->width, 
+		m_InputCodecCtx->height,
+		AV_PIX_FMT_BGR24, SWS_BICUBIC, NULL, NULL, NULL);
+	sws_scale(img_convert_ctx, ((AVPicture*)m_InputFrame)->data,
+		((AVPicture*)m_InputFrame)->linesize, 0, m_InputCodecCtx->height,
+		((AVPicture *)m_InputFrameRGB)->data, ((AVPicture *)m_InputFrameRGB)->linesize);
+	return 0;
+}
+
 void DirectShowTools::run()
 {
-	std::vector<CameraDeviceInfo> camera_device_list;
-	CameraConfig cc;
-	camera_device_list = cc.ListCameraDevice();
+//	CameraConfig cc;
+//	std::vector<CameraDeviceInfo> m_CameraList = cc.ListCameraDevice();
 
-	avdevice_register_all();
-	avcodec_register_all();
-	av_register_all();
-
-	std::string camera_name = "video=" + camera_device_list[0].friend_name;
+//	std::string camera_name = "video=" + m_CameraList[0].friend_name;
 	int video_stream = 1;
-	CameraInputInit(camera_name, video_stream);
+	CameraInputInit(m_CameraName, video_stream);
 
-	std::string output_name = "t1.mp4";
-	MP4OutputConfig(output_name);
-	double video_pts_m;
-	int res, frameFinished, pts_num = 0;
 	AVPacket packet;
-	
-	while (res = av_read_frame(m_InputFormatCtx, &packet) >= 0)
+	while (av_read_frame(m_InputFormatCtx, &packet) >= 0)
 	{
-		if (packet.stream_index != video_stream) {
-			continue;
-		}
-		avcodec_decode_video2(m_InputCodecCtx, m_InputFrame, &frameFinished, &packet);
-		if (!frameFinished) {
-			continue;
-		}
 		SwsContext * img_convert_ctx;
-		img_convert_ctx = sws_getCachedContext(NULL, m_InputCodecCtx->width, 
-							m_InputCodecCtx->height, m_InputCodecCtx->pix_fmt, 
-							m_InputCodecCtx->width, m_InputCodecCtx->height, 
-							AV_PIX_FMT_BGR24, SWS_BICUBIC, NULL, NULL, NULL);
-		sws_scale(img_convert_ctx, ((AVPicture*)m_InputFrame)->data, 
-			     ((AVPicture*)m_InputFrame)->linesize, 0, m_InputCodecCtx->height, 
-			     ((AVPicture *)m_InputFrameRGB)->data, ((AVPicture *)m_InputFrameRGB)->linesize);
+		int ret = GetImageData(video_stream, packet, img_convert_ctx);	// 得到图像数据	
 
-		cv::Mat img(m_InputFrame->height, m_InputFrame->width, CV_8UC3, m_InputFrameRGB->data[0]);
-		
-		// 添加水印
-		AddWaterMask(img);
-		// opencv默认是BGR排序，转到QT中显示需要RGB排序
-		cv::cvtColor(img, img, CV_BGR2RGB);
+		if (ret < 0) {
+			continue;
+		}
+		cv::Mat img(m_InputFrame->height, m_InputFrame->width, 
+			CV_8UC3, m_InputFrameRGB->data[0]);
+		AddWaterMask(img);		// 添加水印
+		GrabImage(img);			// 抓拍图像
+		PreviewImage(img);		// 预览图像
+		SaveVideo(img);			// 保存视频
 
-		QImage Qimg = QImage((const unsigned char*)(img.data), img.cols,
-			img.rows, img.cols*img.channels(), QImage::Format_RGB888);
-		emit send_image_data(Qimg);
-		cvWaitKey(10);
-
+		cvWaitKey(1);
 		sws_freeContext(img_convert_ctx);
-
-		SwsContext * img_convert_ctx_out;
-		img_convert_ctx_out = sws_getCachedContext(NULL, m_InputCodecCtx->width, 
-							  m_InputCodecCtx->height, m_InputCodecCtx->pix_fmt, 
-							  m_InputCodecCtx->width, m_InputCodecCtx->height, 
-							  AV_PIX_FMT_YUV420P, SWS_FAST_BILINEAR, NULL, NULL, NULL);
-
-
-		sws_scale(img_convert_ctx_out, ((AVPicture*)m_InputFrame)->data, 
-				 ((AVPicture*)m_InputFrame)->linesize, 0, m_InputCodecCtx->height, 
-				 ((AVPicture *)m_OutputFrame)->data, ((AVPicture *)m_OutputFrame)->linesize);
-
-		write_video_frame(pts_num);
-		pts_num++;
 		av_free_packet(&packet);
-		sws_freeContext(img_convert_ctx_out);
+
 		if (m_ThreadStop) {
 			m_ThreadStop = false;
 			break;
 		}
 	}
-	flush_encoder(0);
-	av_write_trailer(m_OutputFormatCtx);
-	
-	Destory();
-	av_free_packet(&packet);
+	DestoryInputParam();
 }
 
 void DirectShowTools::ThreadStopFunc()
