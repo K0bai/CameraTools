@@ -22,10 +22,10 @@ struct ClassCompareRes
 {
 	bool operator()(const std::string& lhs, const std::string& rhs) {
 		std::string lhs_ = lhs, rhs_ = rhs;
-		int index = lhs_.find(' ');
-		lhs_.erase(index, 3);
-		index = rhs_.find(' ');
-		rhs_.erase(index, 3);
+		int index = lhs_.find('x');
+		lhs_.erase(index);
+		index = rhs_.find('x');
+		rhs_.erase(index);
 		return std::atoi(lhs_.c_str()) > std::atoi(rhs_.c_str());
 	}
 };
@@ -38,9 +38,9 @@ struct ClassCompareOth
 
 //  软件需要获取的摄像头设备相关的参数
 struct CameraDeviceInfo {
-	std::string friend_name;							 // 设备名称
-	std::set<std::string> data_type;					 // 设备所支持的输出数据类型
-	std::set<std::string, ClassCompareRes> data_resolution; // 设备所支持的输出分辨率
+	std::string friend_name;								 // 设备名称
+	std::set<std::string> data_type;						 // 设备所支持的输出数据类型
+	std::set<std::string, ClassCompareRes> data_resolution;  // 设备所支持的输出分辨率
 	std::set<std::string, ClassCompareOth> data_bit;		 // 设备所支持的输出数据位数
 	std::set<std::string, ClassCompareOth> data_fps;		 // 设备所支持的输出帧率
 };

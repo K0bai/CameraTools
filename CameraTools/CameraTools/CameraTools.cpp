@@ -1,5 +1,6 @@
 #include "CameraTools.h"
 #include <qmessagebox.h>
+#include <qdatetime.h>
 #include <qfiledialog.h>
 #include <dbt.h>
 
@@ -10,23 +11,71 @@ CameraTools::CameraTools(QWidget *parent)
 	: QMainWindow(parent)
 {
 	ui.setupUi(this);
+
+	b_CameraInitState = false;
+	m_CaptureState = CT_STOPPREVIEW;
+
 	ui.horizontalSlider_transparency->setMinimum(0);
 	ui.horizontalSlider_transparency->setMaximum(100);
 	ui.horizontalSlider_transparency->setValue(0);
-	b_CameraState = false;
+	ui.comboBox_ImageStyle->addItems((QStringList)QStringLiteral("Õý³£"));
+	ui.comboBox_ImageStyle->addItems((QStringList)QStringLiteral("ºÚ°×"));
+	ui.comboBox_ImageStyle->addItems((QStringList)QStringLiteral("ÓÍ»­"));
+	ui.comboBox_ImageStyle->setCurrentIndex(0);
+	
 	DetectCamera();
+	UpdateControl(CT_STOPPREVIEW);
+}
+
+void CameraTools::WriteRecord(QString msg)
+{
+	QDateTime time = QDateTime::currentDateTime();
+	QString strTime = time.toString("hh:mm:ss  ");
+	ui.textEdit_record->append(">> " + strTime + msg);
+}
+
+void CameraTools::UpdateControl(int flag)
+{
+	if (flag == CT_STARTPREVIEW) {
+		ui.comboBox_Camera->setDisabled(true);
+		ui.comboBox_DataBit->setDisabled(true);
+		ui.comboBox_DataFps->setDisabled(true);
+		ui.comboBox_DataResolution->setDisabled(true);
+		ui.comboBox_DataType->setDisabled(true);
+
+		ui.pushButton_addmask->setEnabled(true);
+		ui.pushButton_Grab->setEnabled(true);
+		ui.pushButton_StartCapture->setEnabled(true);
+
+		ui.horizontalSlider_transparency->setEnabled(true);
+		ui.horizontalSlider_transparency->setVisible(false);
+	}
+	else if (flag == CT_STOPPREVIEW) {
+		ui.comboBox_Camera->setEnabled(true);
+		ui.comboBox_DataBit->setEnabled(true);
+		ui.comboBox_DataFps->setEnabled(true);
+		ui.comboBox_DataResolution->setEnabled(true);
+		ui.comboBox_DataType->setEnabled(true);
+
+		ui.pushButton_addmask->setDisabled(true);
+		ui.pushButton_Grab->setDisabled(true);
+		ui.pushButton_StartCapture->setDisabled(true);
+
+		ui.horizontalSlider_transparency->setDisabled(true);
+		ui.horizontalSlider_transparency->setVisible(false);
+	}
 }
 
 void CameraTools::DetectCamera()
 {
-	b_CameraState = true;
+	b_CameraInitState = true;
 	m_CameraList.clear();
 	ui.comboBox_Camera->clear();
 	CameraConfig cc;
 	m_CameraList = cc.ListCameraDevice();
 
 	if (m_CameraList.size() == 0) {
-		b_CameraState = false;
+		b_CameraInitState = false;
 		return;
 	}
 	for (int i = 0; i < m_CameraList.size(); ++i) {
@@ -34,7 +83,7 @@ void CameraTools::DetectCamera()
 	}
 	ui.comboBox_Camera->setCurrentIndex(0);
 	ShowCameraInfo(m_CameraList, 0);
-	b_CameraState = false;
+	b_CameraInitState = false;
 }
 
 void CameraTools::ShowCameraInfo(std::vector<CameraDeviceInfo>& camera_info, int index)
@@ -81,28 +130,40 @@ PreviewCameraInfo CameraTools::GetCameraParam()
 	return cInfo;
 }
 
-cv::Mat CameraTools::BitToMat(FIBITMAP* fiBmp, const FREE_IMAGE_FORMAT &fif)
+int CameraTools::IsWaterMaskSizeOk(int height, int width)
+{
+	if (height > CT_WATERMASK_MAX_HEIGHT ||
+		width > CT_WATERMASK_MIN_WIDTH) {
+		return -1;
+	}
+	return 0;
+}
+
+void CameraTools::BitToMat(FIBITMAP* fiBmp, const FREE_IMAGE_FORMAT &fif,
+							  cv::Mat& gifImg, cv::Mat& maskImg)
 {
 	if (NULL == fiBmp || FIF_GIF != fif) {
-		return cv::Mat();
+		return ;
 	}
 	int width = FreeImage_GetWidth(fiBmp);
 	int height = FreeImage_GetHeight(fiBmp);
 
 	RGBQUAD* pixels = new RGBQUAD;
-	cv::Mat img = cv::Mat::zeros(height, width, CV_8UC3);
+	gifImg = cv::Mat::zeros(height, width, CV_8UC3);
+	maskImg = cv::Mat::zeros(height, width, CV_8UC1);
 	for (int i = 0; i < height; ++i) {
 		for (int j = 0; j < width; ++j) {
 			FreeImage_GetPixelColor(fiBmp, j, i, pixels);
-			img.at<uchar>(height-1-i, 3*j) = pixels->rgbBlue;
-			img.at<uchar>(height-1-i, 3*j+1) = pixels->rgbGreen;
-			img.at<uchar>(height-1-i, 3*j+2) = pixels->rgbRed;
+			gifImg.at<uchar>(height-1-i, 3*j+0) = pixels->rgbBlue;
+			gifImg.at<uchar>(height-1-i, 3*j+1) = pixels->rgbGreen;
+			gifImg.at<uchar>(height-1-i, 3*j+2) = pixels->rgbRed;
+			maskImg.at<uchar>(height - 1 - i, j) = pixels->rgbReserved;
 		}
 	}
-	return img;
 }
 
-int CameraTools::GifToMat(std::vector<cv::Mat>& gifImgs, const char* filename)
+int CameraTools::GifToMat(std::vector<cv::Mat>& gifImgs, std::vector<cv::Mat>& maskImgs, 
+						  const char* filename)
 {
 	FreeImage_Initialise(); 
 	FREE_IMAGE_FORMAT fif = FIF_GIF;
@@ -115,17 +176,20 @@ int CameraTools::GifToMat(std::vector<cv::Mat>& gifImgs, const char* filename)
 		if (!mfibmp) {
 			continue;
 		}
-		cv::Mat dst = BitToMat(mfibmp, fif);
+		cv::Mat gifImg, maskImg;
+		BitToMat(mfibmp, fif, gifImg, maskImg);
 		FreeImage_UnlockPage(fiBmp, mfibmp, false);
-		if (dst.empty()) {
+		if (gifImg.empty()) {
 			if (NULL != fiBmp) {
 				FreeImage_CloseMultiBitmap(fiBmp, GIF_DEFAULT);
 			}
 			FreeImage_DeInitialise();
 			return -1;
 		}
-		gifImgs.push_back(dst);
-		dst.release();
+		gifImgs.push_back(gifImg);
+		maskImgs.push_back(maskImg);
+		gifImg.release();
+		maskImg.release();
 	}
 
 	if (NULL != fiBmp) {
@@ -153,8 +217,10 @@ bool CameraTools::nativeEvent(const QByteArray &eventType, void *message, long *
 	return false;
 }
 
-void CameraTools::paint_img(QImage src_img)
+void CameraTools::paint_img()
 {
+	QImage src_img;
+	m_Dst->GetImageBuffer(src_img);
 	ui.label_show_picture->resize(src_img.size());
 	ui.label_show_picture->setPixmap(QPixmap::fromImage(src_img));
 }
@@ -164,11 +230,16 @@ void CameraTools::button_startshow_click()
 	QString str = ui.pushButton_StartShow->text();
 	if (str == QStringLiteral("¿ªÊ¼Ô¤ÀÀ")) {
 		m_Dst = new DirectShowTools();
-		connect(m_Dst, SIGNAL(SendImageData(QImage)), this,
-			SLOT(paint_img(QImage)), Qt::QueuedConnection);
+		connect(m_Dst, SIGNAL(SendUpdataImgMsg()), this,
+			SLOT(paint_img()), Qt::QueuedConnection);
+		connect(m_Dst, SIGNAL(SendUnexpectedAbort()), this,
+			SLOT(get_unexpected_abort()), Qt::QueuedConnection);
 		PreviewCameraInfo cInfo = GetCameraParam();
-		m_Dst->m_CameraName = cInfo.name;
+		m_Dst->SetCameraInfo(cInfo);
 		m_Dst->start();
+		WriteRecord(QStringLiteral("¿ªÊ¼Ô¤ÀÀ"));
+		m_CaptureState = CT_STARTPREVIEW;
+		UpdateControl(CT_STARTPREVIEW);
 		ui.pushButton_StartShow->setText(QStringLiteral("Í£Ö¹Ô¤ÀÀ"));
 	}
 	else {
@@ -178,9 +249,11 @@ void CameraTools::button_startshow_click()
 				QStringLiteral("ÇëÏÈÍ£Ö¹Â¼Ïñ"));
 			return ;
 		}
-		connect(this, SIGNAL(ThreadStop()), m_Dst, 
-			SLOT(ThreadStopFunc()), Qt::QueuedConnection);
-		emit ThreadStop();
+		m_Dst->SetThreadStop(true);
+		WriteRecord(QStringLiteral("Í£Ö¹Ô¤ÀÀ"));
+		m_CaptureState = CT_STOPPREVIEW;
+		UpdateControl(CT_STOPPREVIEW);
+		ui.pushButton_addmask->setText(QStringLiteral("Ìí¼ÓË®Ó¡"));
 		ui.pushButton_StartShow->setText(QStringLiteral("¿ªÊ¼Ô¤ÀÀ"));
 	}
 }
@@ -195,13 +268,15 @@ void CameraTools::button_startcapture_click()
 			return;
 		}
 		else {
-			m_Dst->m_SaveVideoPath = file_path.toStdString();
-			m_Dst->m_SaveVideoFlag = DST_SAVEVIDEO_INIT;
+			m_Dst->SetSaveVideoPath(file_path.toStdString());
+			m_Dst->SetSaveVideoFlag(DST_SAVEVIDEO_INIT);
 		}
+		WriteRecord(QStringLiteral("¿ªÊ¼Â¼Ïñ"));
 		ui.pushButton_StartCapture->setText(QStringLiteral("Í£Ö¹Â¼Ïñ"));
 	}
 	else {
-		m_Dst->m_SaveVideoFlag = DST_SAVEVIDEO_END;
+		m_Dst->SetSaveVideoFlag(DST_SAVEVIDEO_END);
+		WriteRecord(QStringLiteral("Í£Ö¹Â¼Ïñ"));
 		ui.pushButton_StartCapture->setText(QStringLiteral("¿ªÊ¼Â¼Ïñ"));
 	}
 }
@@ -209,8 +284,9 @@ void CameraTools::button_startcapture_click()
 
 void CameraTools::button_grab_click()
 {
-	if (m_Dst->m_GrabImgFlag == DST_GRAB_READY) {
-		m_Dst->m_GrabImgFlag = DST_GRAB_PROCESSING;
+	if (m_Dst->GetGrabImgFlag() == DST_GRAB_READY) {
+		WriteRecord(QStringLiteral("×¥ÅÄ"));
+		m_Dst->SetGrabImgFlag(DST_GRAB_PROCESSING);
 	}
 }
 
@@ -228,22 +304,43 @@ void CameraTools::button_addmask_click()
 			filepath = tmp.data();
 
 			if (path.endsWith(".gif")) {
-				GifToMat(m_Dst->m_WaterMaskGifImg, filepath);
-				m_Dst->m_MaskFlag = DST_WATERMASK_GIF;
+				std::vector<cv::Mat> tempGif, tempMask;
+				GifToMat(tempGif, tempMask, filepath);
+				if (tempGif.size() != 0 &&
+					(IsWaterMaskSizeOk(tempGif[0].rows, tempGif[0].cols)
+						== CT_WATERMASK_ERROR)) {
+					WriteRecord(QStringLiteral("Ë®Ó¡³ß´ç²»·ûºÏ"));
+					return;
+				}
+				m_Dst->SetWaterMaskGifImg(tempGif);
+				m_Dst->SetMaskGifImg(tempMask);
+				m_Dst->SetWaterMaskFlag(DST_WATERMASK_GIF);
 			}
 			else {
-				m_Dst->m_WaterMaskImg = cv::imread(filepath);
-				m_Dst->m_MaskImg = cv::imread(filepath, 0);
-				m_Dst->m_MaskFlag = DST_WATERMASK_RGB;
+				cv::Mat srcImg, maskImg;
+				srcImg = cv::imread(filepath);
+				if (IsWaterMaskSizeOk(srcImg.rows, srcImg.cols)
+					== CT_WATERMASK_ERROR) {
+					WriteRecord(QStringLiteral("Ë®Ó¡³ß´ç²»·ûºÏ"));
+					return;
+				}
+				m_Dst->SetWaterMaskImg(srcImg);
+				maskImg = cv::imread(filepath, 0);
+				m_Dst->SetMaskImg(maskImg);
+				m_Dst->SetWaterMaskFlag(DST_WATERMASK_RGB);
 			}
+			WriteRecord(QStringLiteral("Ìí¼ÓË®Ó¡"));
+			ui.horizontalSlider_transparency->setVisible(true);
+			ui.pushButton_addmask->setText(QStringLiteral("É¾³ýË®Ó¡"));
 		}
 		else {
-			m_Dst->m_MaskFlag = DST_WATERMASK_NONE;
+			m_Dst->SetWaterMaskFlag(DST_WATERMASK_NONE);
 		}
-		ui.pushButton_addmask->setText(QStringLiteral("É¾³ýË®Ó¡"));
 	}
 	else {
-		m_Dst->m_MaskFlag = DST_WATERMASK_NONE;
+		m_Dst->SetWaterMaskFlag(DST_WATERMASK_NONE);
+		WriteRecord(QStringLiteral("É¾³ýË®Ó¡"));
+		ui.horizontalSlider_transparency->setVisible(false);
 		ui.pushButton_addmask->setText(QStringLiteral("Ìí¼ÓË®Ó¡"));
 	}
 }
@@ -251,12 +348,54 @@ void CameraTools::button_addmask_click()
 void CameraTools::combobox_camera_change()
 {
 	int i = ui.comboBox_Camera->currentIndex();
-	if (!b_CameraState) {
+	if (!b_CameraInitState) {
 		ShowCameraInfo(m_CameraList, i);
+	}
+}
+void CameraTools::combobox_imagestyle_change()
+{
+	if (m_CaptureState == CT_STOPPREVIEW) {
+		return;
+	}
+	int index = ui.comboBox_ImageStyle->currentIndex();
+	switch (index)
+	{
+	case 0:
+		m_Dst->SetImageStyle(DST_IMAGESTYLE_NORMAL);
+		WriteRecord(QStringLiteral("Ñ¡ÔñÕý³£·ç¸ñ"));
+		break;
+	case 1:
+		m_Dst->SetImageStyle(DST_IMAGESTYLE_GRAY);
+		WriteRecord(QStringLiteral("Ñ¡ÔñºÚ°×·ç¸ñ"));
+		break;
+	case 2:
+		m_Dst->SetImageStyle(DST_IMAGESTYLE_OIL);
+		WriteRecord(QStringLiteral("Ñ¡ÔñÓÍ»­·ç¸ñ"));
+		break;
 	}
 }
 
 void CameraTools::slider_value_change()
 {
-	m_Dst->m_Transparency = ui.horizontalSlider_transparency->value();
+	m_Dst->SetTransparency(ui.horizontalSlider_transparency->value());
+}
+
+void CameraTools::get_unexpected_abort()
+{
+	WriteRecord(QStringLiteral("»ñÈ¡ÉãÏñÍ·Êý¾Ý´íÎó£¡"));
+	QString str = ui.pushButton_StartCapture->text();
+	if (str == QStringLiteral("Í£Ö¹Â¼Ïñ")) {
+		m_Dst->SetSaveVideoFlag(DST_SAVEVIDEO_END);
+		WriteRecord(QStringLiteral("Í£Ö¹Â¼Ïñ"));
+		ui.pushButton_StartCapture->setText(QStringLiteral("¿ªÊ¼Â¼Ïñ"));
+	}
+	str = ui.pushButton_addmask->text();
+	if (str == QStringLiteral("É¾³ýË®Ó¡")) {
+		m_Dst->SetWaterMaskFlag(DST_WATERMASK_NONE);
+		WriteRecord(QStringLiteral("É¾³ýË®Ó¡"));
+		ui.horizontalSlider_transparency->setVisible(false);
+		ui.pushButton_addmask->setText(QStringLiteral("Ìí¼ÓË®Ó¡"));
+	}
+	UpdateControl(CT_STOPPREVIEW);
+	ui.pushButton_StartShow->setText(QStringLiteral("¿ªÊ¼Ô¤ÀÀ"));
 }

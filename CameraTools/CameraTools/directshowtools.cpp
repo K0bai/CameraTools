@@ -1,21 +1,111 @@
 #include "directshowtools.h"
-#include "cameraconfig.h"
 #include <qdatetime.h>
 
 DirectShowTools::DirectShowTools()
 {
 	m_PictureBuff = NULL;
 	m_VideoOutBuff = NULL;
-	m_MaskFlag = DST_WATERMASK_NONE;
-	m_ThreadStop = false;
+	m_WaterMaskFlag = DST_WATERMASK_NONE;
+	b_ThreadStop = false;
 	m_ShowIndex = 0;
 	m_Internal = 0;
 	m_Transparency = 0;
 	m_GrabImgFlag = 0;
 	m_SaveVideoFlag = DST_SAVEVIDEO_NONE;
+	m_ImageStyle = DST_IMAGESTYLE_NORMAL;
+	InitializeCriticalSection(&m_lock);
 
 	connect(this, SIGNAL(SendImageGrabMsg()), this,
 		SLOT(SaveGrabImage()), Qt::QueuedConnection);
+}
+
+void DirectShowTools::SetWaterMaskFlag(int flag)
+{
+	m_WaterMaskFlag = flag;
+}
+
+void DirectShowTools::SetTransparency(int value)
+{
+	m_Transparency = value;
+}
+
+void DirectShowTools::SetWaterMaskImg(cv::Mat img)
+{
+	m_WaterMaskImg = img;
+}
+
+void DirectShowTools::SetMaskImg(cv::Mat img)
+{
+	m_MaskImg = img;
+}
+
+void DirectShowTools::SetWaterMaskGifImg(std::vector<cv::Mat> img)
+{
+	m_WaterMaskGifImg = img;
+}
+void DirectShowTools::SetMaskGifImg(std::vector<cv::Mat> img)
+{
+	m_MaskGifImg = img;
+}
+
+void DirectShowTools::SetInternal(int num)
+{
+	m_Internal = num;
+}
+
+int DirectShowTools::GetInternal()
+{
+	return m_Internal;
+}
+
+void DirectShowTools::SetGrabImgFlag(int flag)
+{
+	m_GrabImgFlag = flag;
+}
+
+int DirectShowTools::GetGrabImgFlag()
+{
+	return m_GrabImgFlag;
+}
+
+void DirectShowTools::SetSaveVideoFlag(int flag)
+{
+	m_SaveVideoFlag = flag;
+}
+int DirectShowTools::GetSaveVideoFlag()
+{
+	return m_SaveVideoFlag;
+}
+
+void DirectShowTools::SetCameraInfo(PreviewCameraInfo cInfo)
+{
+	m_CameraInfo = cInfo;
+}
+PreviewCameraInfo DirectShowTools::GetCameraInfo()
+{
+	return m_CameraInfo;
+}
+
+void DirectShowTools::SetSaveVideoPath(std::string str)
+{
+	m_SaveVideoPath = str;
+}
+std::string DirectShowTools::GetSaveVideoPath()
+{
+	return m_SaveVideoPath;
+}
+
+void DirectShowTools::SetThreadStop(bool flag)
+{
+	b_ThreadStop = flag;
+}
+bool DirectShowTools::GetThreadStop()
+{
+	return b_ThreadStop;
+}
+void DirectShowTools::SetImageStyle(int flag)
+{
+	m_ImageStyle = flag;
 }
 
 void DirectShowTools::DestoryInputParam()
@@ -85,7 +175,7 @@ int DirectShowTools::FlushEncoder(unsigned int stream_index)
     return ret;
 }
 
-int DirectShowTools::CameraInputInit(const std::string& camera_name, int &video_stream)
+int DirectShowTools::CameraInputInit(PreviewCameraInfo cInfo, int &video_stream)
 {
 	avdevice_register_all();
 	avcodec_register_all();
@@ -95,20 +185,18 @@ int DirectShowTools::CameraInputInit(const std::string& camera_name, int &video_
     m_InputFormatCtx = avformat_alloc_context();
     AVInputFormat *iformat = av_find_input_format("dshow");
 	AVDictionary *options = NULL; 
-//	av_dict_set(&options, "video_size", "1280x720", 0);
-//	av_dict_set(&options, "framerate", "5", 0);
-//	av_dict_set(&options, "frame_bits", "12", 0);
-//	av_dict_set(&options, "pix_fmt", "I420", 0);
-	std::string cname = "video=" + camera_name;
+	av_dict_set(&options, "video_size", cInfo.resolution.c_str(), 0);
+	av_dict_set(&options, "framerate", cInfo.fps.c_str(), 0);
+	av_dict_set(&options, "frame_bits", cInfo.bit.c_str(), 0);
+	av_dict_set(&options, "pix_fmt", cInfo.type.c_str(), 0);
+	std::string cname = "video=" + cInfo.name;
 	if (avformat_open_input(&m_InputFormatCtx, 
 		cname.c_str(), iformat, &options) != 0) {
 		return -1;
 	}
 	if (avformat_find_stream_info(m_InputFormatCtx, NULL) < 0) {
-		return -2;
+		return -1;
 	}
-    av_dump_format(m_InputFormatCtx, 0, camera_name.c_str(), 0);
-
     for (int i = 0; i < m_InputFormatCtx->nb_streams; i++) {
         if (m_InputFormatCtx->streams[i]->codec->coder_type == AVMEDIA_TYPE_VIDEO) {
             video_stream = i;
@@ -116,15 +204,20 @@ int DirectShowTools::CameraInputInit(const std::string& camera_name, int &video_
         }
     }
 
-    if (video_stream == -1) return -14;
+	if (video_stream == -1) {
+		return -1;
+	}
     m_InputCodecCtx = m_InputFormatCtx->streams[video_stream]->codec;
 
     pCodec = avcodec_find_decoder(m_InputCodecCtx->codec_id);
-    if (pCodec == NULL) return -15; //codec not found
+	if (pCodec == NULL) {
+		return -1;
+	}
 
-    if (avcodec_open2(m_InputCodecCtx, pCodec, NULL) < 0) return -16;
+	if (avcodec_open2(m_InputCodecCtx, pCodec, NULL) < 0) {
+		return -1;
+	}
     AVPixelFormat  pFormat = AV_PIX_FMT_BGR24;
-
     uint8_t *buffer;
     int numBytes;
 
@@ -147,7 +240,7 @@ int DirectShowTools::MP4OutputConfig(const std::string& output_name)
 			NULL, "mpeg", output_name.c_str());
 	}
 	if (!m_OutputFormatCtx) {
-		return 0;
+		return -1;
 	}
 
 	m_OutputFormatCtx->oformat->video_codec = CODEC_ID_H264;
@@ -164,7 +257,7 @@ int DirectShowTools::MP4OutputConfig(const std::string& output_name)
 
 	if (!(m_OutputFormat->flags & AVFMT_NOFILE)) {
 		if (avio_open(&m_OutputFormatCtx->pb, output_name.c_str(), AVIO_FLAG_WRITE) < 0) {
-			return 0;
+			return -1;
 		}
 	}
 	avformat_write_header(m_OutputFormatCtx, NULL);
@@ -210,8 +303,8 @@ AVStream* DirectShowTools::AddVideoStream(enum AVCodecID codec_id)
 	/* put sample parameters */
 	c->bit_rate = /*400000*/3000000;
 	/* resolution must be a multiple of two */
-	c->width = /*352*/640;
-	c->height = /*288*/480;
+	c->width = /*352*/m_InputFrame->width;
+	c->height = /*288*/m_InputFrame->height;
 	/* time base: this is the fundamental unit of time (in seconds) in terms
 	of which frame timestamps are represented. for fixed-fps content,
 	timebase should be 1/framerate and timestamp increments should be
@@ -300,16 +393,17 @@ void DirectShowTools::WriteVideoFrame(int &pts_num)
 
 void DirectShowTools::AddWaterMask(cv::Mat& img)
 {
-	if (m_MaskFlag <= DST_WATERMASK_NONE) {
+	if (m_WaterMaskFlag <= DST_WATERMASK_NONE) {
 		return;
 	}
 
 	float tmp_tpy = m_Transparency / 100.0;
 
-	switch (m_MaskFlag)
+	switch (m_WaterMaskFlag)
 	{
 	case DST_WATERMASK_RGB:
-		cv::add(tmp_tpy*img(cv::Rect(10, 10, m_WaterMaskImg.cols, m_WaterMaskImg.rows)),
+		cv::add(tmp_tpy*img(cv::Rect(10, 10, 
+			m_WaterMaskImg.cols, m_WaterMaskImg.rows)),
 			(1 - tmp_tpy)*m_WaterMaskImg, 
 			img(cv::Rect(10, 10, m_WaterMaskImg.cols, m_WaterMaskImg.rows)),
 			m_MaskImg, -1);
@@ -323,12 +417,10 @@ void DirectShowTools::AddWaterMask(cv::Mat& img)
 			m_ShowIndex = 0;
 		}
 		int i = m_ShowIndex;
-		cv::cvtColor(m_WaterMaskGifImg[i], m_MaskImg, CV_BGR2GRAY);
-
 		cv::add(tmp_tpy*img(cv::Rect(10, 10, m_WaterMaskGifImg[i].cols, m_WaterMaskGifImg[i].rows)),
 			(1 - tmp_tpy)*m_WaterMaskGifImg[i],
 			img(cv::Rect(10, 10, m_WaterMaskGifImg[i].cols, m_WaterMaskGifImg[i].rows)),
-			m_MaskImg, -1);
+			m_MaskGifImg[i], -1);
 
 		if (m_Internal >= 4) {
 			m_ShowIndex++;
@@ -360,13 +452,159 @@ void DirectShowTools::SaveGrabImage()
 	m_GrabImgFlag = DST_GRAB_READY;
 }
 
+void OilPaint(cv::Mat& I, int brushSize, int coarseness)
+{
+	assert(!I.empty());
+	if (brushSize < 1) brushSize = 1;
+	if (brushSize > 8) brushSize = 8;
+
+	if (coarseness < 1) coarseness = 1;
+	if (coarseness > 255) coarseness = 255;
+
+	int width = I.cols;
+	int height = I.rows;
+
+	int lenArray = coarseness + 1;
+	int* CountIntensity = new int[lenArray];
+	uint* RedAverage = new uint[lenArray];
+	uint* GreenAverage = new uint[lenArray];
+	uint* BlueAverage = new uint[lenArray];
+
+	/// 图像灰度化
+	cv::Mat gray;
+	cvtColor(I, gray, cv::COLOR_BGR2GRAY);
+
+
+	/// 目标图像
+	cv::Mat dst = cv::Mat::zeros(I.size(), I.type());
+
+	for (int nY = 0; nY <height; nY++)
+	{
+		// 油画渲染范围上下边界
+		int top = nY - brushSize;
+		int bottom = nY + brushSize + 1;
+
+		if (top<0) top = 0;
+		if (bottom >= height) bottom = height - 1;
+
+		for (int nX = 0; nX<width; nX++)
+		{
+			// 油画渲染范围左右边界
+			int left = nX - brushSize;
+			int right = nX + brushSize + 1;
+
+			if (left<0) left = 0;
+			if (right >= width) right = width - 1;
+
+			//初始化数组
+			for (int i = 0; i <lenArray; i++)
+			{
+				CountIntensity[i] = 0;
+				RedAverage[i] = 0;
+				GreenAverage[i] = 0;
+				BlueAverage[i] = 0;
+			}
+
+
+			// 下面这个内循环类似于外面的大循环
+			// 也是油画特效处理的关键部分
+			for (int j = top; j<bottom; j++)
+			{
+				for (int i = left; i<right; i++)
+				{
+					uchar intensity = static_cast<uchar>(coarseness*gray.at<uchar>(j, i) / 255.0);
+					CountIntensity[intensity]++;
+
+					RedAverage[intensity] += I.at<cv::Vec3b>(j, i)[2];
+					GreenAverage[intensity] += I.at<cv::Vec3b>(j, i)[1];
+					BlueAverage[intensity] += I.at<cv::Vec3b>(j, i)[0];
+				}
+			}
+
+			// 求最大值，并记录下数组索引
+			uchar chosenIntensity = 0;
+			int maxInstance = CountIntensity[0];
+			for (int i = 1; i<lenArray; i++)
+			{
+				if (CountIntensity[i]>maxInstance)
+				{
+					chosenIntensity = (uchar)i;
+					maxInstance = CountIntensity[i];
+				}
+			}
+
+			dst.at<cv::Vec3b>(nY, nX)[2] = static_cast<uchar>(RedAverage[chosenIntensity] / static_cast<float>(maxInstance));
+			dst.at<cv::Vec3b>(nY, nX)[1] = static_cast<uchar>(GreenAverage[chosenIntensity] / static_cast<float>(maxInstance));
+			dst.at<cv::Vec3b>(nY, nX)[0] = static_cast<uchar>(BlueAverage[chosenIntensity] / static_cast<float>(maxInstance));
+		}
+
+	}
+
+	delete[] CountIntensity;
+	delete[] RedAverage;
+	delete[] GreenAverage;
+	delete[] BlueAverage;
+	I = dst.clone();
+}
+
 void DirectShowTools::PreviewImage(cv::Mat& img)
 {
-	cv::cvtColor(img, img, CV_BGR2RGB);			// opencv默认是BGR排序，转到QT中显示需要RGB排序
-	cv::Mat temp_img = img.clone();
-	QImage Qimg = QImage((const unsigned char*)(img.data), img.cols,
-		img.rows, img.cols*img.channels(), QImage::Format_RGB888);
-	emit SendImageData(Qimg);
+	cv::Mat dst(img.size(), img.type());
+	QImage Qimg;
+	switch (m_ImageStyle)
+	{
+	case DST_IMAGESTYLE_NORMAL:
+	{
+		cv::cvtColor(img, img, CV_BGR2RGB);			// opencv默认是BGR排序，转到QT中显示需要RGB排序
+		Qimg = QImage((const unsigned char*)(img.data), img.cols,
+			img.rows, img.cols*img.channels(), QImage::Format_RGB888);
+		break;
+	}
+	case DST_IMAGESTYLE_OIL:
+	{
+		OilPaint(img, 3, 50);
+		cv::cvtColor(dst, dst, CV_BGR2RGB);	 
+		Qimg = QImage((const unsigned char*)(dst.data), dst.cols,
+			dst.rows, dst.cols*dst.channels(), QImage::Format_RGB888);
+		break;
+	}
+	case DST_IMAGESTYLE_GRAY:
+	{
+		cv::cvtColor(img, img, cv::COLOR_BGR2GRAY);
+		Qimg = QImage(img.cols, img.rows, QImage::Format_Indexed8);
+		Qimg.setColorCount(256);
+		for (int i = 0; i < 256; i++)
+		{
+			Qimg.setColor(i, qRgb(i, i, i));
+		}
+		uchar *pSrc = img.data;
+		for (int row = 0; row < img.rows; row++)
+		{
+			uchar *pDest = Qimg.scanLine(row);
+			memcpy(pDest, pSrc, img.cols);
+			pSrc += img.step;
+		}
+		break;
+	}
+	default:
+		break;
+	}
+
+	EnterCriticalSection(&m_lock);
+	while (m_ImageBuf.size() > 30) {
+		m_ImageBuf.pop();
+	}
+	m_ImageBuf.push(Qimg);
+	LeaveCriticalSection(&m_lock);
+	emit SendUpdataImgMsg();
+}
+
+void DirectShowTools::GetImageBuffer(QImage& Qimg)
+{
+	EnterCriticalSection(&m_lock);
+	Qimg = m_ImageBuf.front();
+	m_ImageBuf.pop();
+	LeaveCriticalSection(&m_lock);
 }
 
 void DirectShowTools::SaveVideo(cv::Mat& img)
@@ -377,16 +615,20 @@ void DirectShowTools::SaveVideo(cv::Mat& img)
 	else if (m_SaveVideoFlag == DST_SAVEVIDEO_INIT) {
 		QDateTime time = QDateTime::currentDateTime();
 		QString str = time.toString("yyyyMMddhhmmsszzz") + ".mp4";
-		MP4OutputConfig(m_SaveVideoPath + "/" + str.toStdString());
+		if (MP4OutputConfig(m_SaveVideoPath + "/" + str.toStdString()) 
+			!= DST_SAVEVIDEO_INIT_OK) {
+			m_SaveVideoFlag = DST_SAVEVIDEO_NONE;
+			return;
+		}
 		m_PtsNum = 0;
 		m_SaveVideoFlag = DST_SAVEVIDEO_SAVING;
 	}
 	else if (m_SaveVideoFlag == DST_SAVEVIDEO_SAVING) {
 		SwsContext* pSwsCxt = sws_getContext(m_InputCodecCtx->width,
-			m_InputCodecCtx->height, PIX_FMT_RGB24,m_InputCodecCtx->width, 
+			m_InputCodecCtx->height, /*PIX_FMT_RGB24*/PIX_FMT_GRAY8,m_InputCodecCtx->width, 
 			m_InputCodecCtx->height, PIX_FMT_YUV420P, SWS_BILINEAR, NULL, NULL, NULL);
 		uint8_t *rgb_src[3] = { img.data, NULL, NULL };
-		int rgb_stride[3] = { 3 * m_InputCodecCtx->width, 0, 0 };
+		int rgb_stride[3] = {/* 3 **/ m_InputCodecCtx->width, 0, 0 };
 
 		sws_scale(pSwsCxt, rgb_src, rgb_stride,0, m_InputCodecCtx->height, 
 			((AVPicture *)m_OutputFrame)->data, ((AVPicture *)m_OutputFrame)->linesize);
@@ -430,42 +672,36 @@ int DirectShowTools::GetImageData(int& video_stream, AVPacket& packet, SwsContex
 
 void DirectShowTools::run()
 {
-//	CameraConfig cc;
-//	std::vector<CameraDeviceInfo> m_CameraList = cc.ListCameraDevice();
-
-//	std::string camera_name = "video=" + m_CameraList[0].friend_name;
 	int video_stream = 1;
-	CameraInputInit(m_CameraName, video_stream);
-
+	if (CameraInputInit(m_CameraInfo, video_stream) != DST_CAMERA_INIT_OK) {
+		return ;
+	}
 	AVPacket packet;
-	while (av_read_frame(m_InputFormatCtx, &packet) >= 0)
-	{
+	int ret = 0;
+	while ((ret = av_read_frame(m_InputFormatCtx, &packet)) >= 0) {
+		if (b_ThreadStop) {
+			b_ThreadStop = false;
+			break;
+		}
 		SwsContext * img_convert_ctx;
-		int ret = GetImageData(video_stream, packet, img_convert_ctx);	// 得到图像数据	
-
+		ret = GetImageData(video_stream, packet, img_convert_ctx);	// 得到图像数据	
 		if (ret < 0) {
 			continue;
 		}
 		cv::Mat img(m_InputFrame->height, m_InputFrame->width, 
 			CV_8UC3, m_InputFrameRGB->data[0]);
+
 		AddWaterMask(img);		// 添加水印
-		GrabImage(img);			// 抓拍图像
 		PreviewImage(img);		// 预览图像
+		GrabImage(img);			// 抓拍图像
 		SaveVideo(img);			// 保存视频
 
 		cvWaitKey(1);
 		sws_freeContext(img_convert_ctx);
 		av_free_packet(&packet);
-
-		if (m_ThreadStop) {
-			m_ThreadStop = false;
-			break;
-		}
+	}
+	if (ret < 0) {
+		SendUnexpectedAbort();
 	}
 	DestoryInputParam();
-}
-
-void DirectShowTools::ThreadStopFunc()
-{
-	m_ThreadStop = true;
 }

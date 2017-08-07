@@ -19,7 +19,7 @@
 
 QT_BEGIN_MOC_NAMESPACE
 struct qt_meta_stringdata_DirectShowTools_t {
-    QByteArrayData data[7];
+    QByteArrayData data[6];
     char stringdata0[85];
 };
 #define QT_MOC_LITERAL(idx, ofs, len) \
@@ -30,16 +30,15 @@ struct qt_meta_stringdata_DirectShowTools_t {
 static const qt_meta_stringdata_DirectShowTools_t qt_meta_stringdata_DirectShowTools = {
     {
 QT_MOC_LITERAL(0, 0, 15), // "DirectShowTools"
-QT_MOC_LITERAL(1, 16, 13), // "SendImageData"
-QT_MOC_LITERAL(2, 30, 0), // ""
-QT_MOC_LITERAL(3, 31, 7), // "src_img"
-QT_MOC_LITERAL(4, 39, 16), // "SendImageGrabMsg"
-QT_MOC_LITERAL(5, 56, 14), // "ThreadStopFunc"
-QT_MOC_LITERAL(6, 71, 13) // "SaveGrabImage"
+QT_MOC_LITERAL(1, 16, 16), // "SendUpdataImgMsg"
+QT_MOC_LITERAL(2, 33, 0), // ""
+QT_MOC_LITERAL(3, 34, 16), // "SendImageGrabMsg"
+QT_MOC_LITERAL(4, 51, 19), // "SendUnexpectedAbort"
+QT_MOC_LITERAL(5, 71, 13) // "SaveGrabImage"
 
     },
-    "DirectShowTools\0SendImageData\0\0src_img\0"
-    "SendImageGrabMsg\0ThreadStopFunc\0"
+    "DirectShowTools\0SendUpdataImgMsg\0\0"
+    "SendImageGrabMsg\0SendUnexpectedAbort\0"
     "SaveGrabImage"
 };
 #undef QT_MOC_LITERAL
@@ -55,22 +54,22 @@ static const uint qt_meta_data_DirectShowTools[] = {
        0,    0, // enums/sets
        0,    0, // constructors
        0,       // flags
-       2,       // signalCount
+       3,       // signalCount
 
  // signals: name, argc, parameters, tag, flags
-       1,    1,   34,    2, 0x06 /* Public */,
-       4,    0,   37,    2, 0x06 /* Public */,
+       1,    0,   34,    2, 0x06 /* Public */,
+       3,    0,   35,    2, 0x06 /* Public */,
+       4,    0,   36,    2, 0x06 /* Public */,
 
  // slots: name, argc, parameters, tag, flags
-       5,    0,   38,    2, 0x08 /* Private */,
-       6,    0,   39,    2, 0x08 /* Private */,
+       5,    0,   37,    2, 0x08 /* Private */,
 
  // signals: parameters
-    QMetaType::Void, QMetaType::QImage,    3,
+    QMetaType::Void,
+    QMetaType::Void,
     QMetaType::Void,
 
  // slots: parameters
-    QMetaType::Void,
     QMetaType::Void,
 
        0        // eod
@@ -82,9 +81,9 @@ void DirectShowTools::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int 
         DirectShowTools *_t = static_cast<DirectShowTools *>(_o);
         Q_UNUSED(_t)
         switch (_id) {
-        case 0: _t->SendImageData((*reinterpret_cast< QImage(*)>(_a[1]))); break;
+        case 0: _t->SendUpdataImgMsg(); break;
         case 1: _t->SendImageGrabMsg(); break;
-        case 2: _t->ThreadStopFunc(); break;
+        case 2: _t->SendUnexpectedAbort(); break;
         case 3: _t->SaveGrabImage(); break;
         default: ;
         }
@@ -92,8 +91,8 @@ void DirectShowTools::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int 
         int *result = reinterpret_cast<int *>(_a[0]);
         void **func = reinterpret_cast<void **>(_a[1]);
         {
-            typedef void (DirectShowTools::*_t)(QImage );
-            if (*reinterpret_cast<_t *>(func) == static_cast<_t>(&DirectShowTools::SendImageData)) {
+            typedef void (DirectShowTools::*_t)();
+            if (*reinterpret_cast<_t *>(func) == static_cast<_t>(&DirectShowTools::SendUpdataImgMsg)) {
                 *result = 0;
                 return;
             }
@@ -105,7 +104,15 @@ void DirectShowTools::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int 
                 return;
             }
         }
+        {
+            typedef void (DirectShowTools::*_t)();
+            if (*reinterpret_cast<_t *>(func) == static_cast<_t>(&DirectShowTools::SendUnexpectedAbort)) {
+                *result = 2;
+                return;
+            }
+        }
     }
+    Q_UNUSED(_a);
 }
 
 const QMetaObject DirectShowTools::staticMetaObject = {
@@ -145,15 +152,20 @@ int DirectShowTools::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
 }
 
 // SIGNAL 0
-void DirectShowTools::SendImageData(QImage _t1)
+void DirectShowTools::SendUpdataImgMsg()
 {
-    void *_a[] = { Q_NULLPTR, const_cast<void*>(reinterpret_cast<const void*>(&_t1)) };
-    QMetaObject::activate(this, &staticMetaObject, 0, _a);
+    QMetaObject::activate(this, &staticMetaObject, 0, Q_NULLPTR);
 }
 
 // SIGNAL 1
 void DirectShowTools::SendImageGrabMsg()
 {
     QMetaObject::activate(this, &staticMetaObject, 1, Q_NULLPTR);
+}
+
+// SIGNAL 2
+void DirectShowTools::SendUnexpectedAbort()
+{
+    QMetaObject::activate(this, &staticMetaObject, 2, Q_NULLPTR);
 }
 QT_END_MOC_NAMESPACE

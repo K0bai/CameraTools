@@ -177,7 +177,7 @@ CameraDeviceInfo CameraConfig::GetCameraDeviceInfo(IMoniker* pMoniker)
 			if (bmi) {
 				std::string data_type_str(subtypebuf);
 				camera_info.data_type.insert(data_type_str);
-				camera_info.data_resolution.insert(std::to_string(bmi->biWidth) + " x "
+				camera_info.data_resolution.insert(std::to_string(bmi->biWidth) + "x"
 					+ std::to_string(bmi->biHeight));
 				camera_info.data_bit.insert(std::to_string(bmi->biBitCount));
 				camera_info.data_fps.insert(std::to_string((int)1e7 / avg_time));
