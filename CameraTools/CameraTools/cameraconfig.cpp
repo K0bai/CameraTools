@@ -9,37 +9,6 @@ CameraConfig::~CameraConfig()
 {
 }
 
-int CameraConfig::GuidToString(const GUID &guid, char* buffer) {
-	int buf_len = 64;
-	snprintf(
-		buffer,
-		buf_len,
-		"{%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
-		guid.Data1, guid.Data2, guid.Data3,
-		guid.Data4[0], guid.Data4[1],
-		guid.Data4[2], guid.Data4[3],
-		guid.Data4[4], guid.Data4[5],
-		guid.Data4[6], guid.Data4[7]);
-	return 0;
-}
-
-int CameraConfig::GetMajorType(GUID guid, char* buffer) {
-	memset(buffer, 0, 256);
-	if (guid == MEDIATYPE_Video) {
-		snprintf(buffer, 256, "MEDIATYPE_Video");
-		return 0;
-	}
-	if (guid == MEDIATYPE_Audio) {
-		snprintf(buffer, 256, "MEDIATYPE_Audio");
-		return 0;
-	}
-	if (guid == MEDIASUBTYPE_RGB24) {
-		snprintf(buffer, 256, "MEDIATYPE_Stream");
-		return 0;
-	}
-	return -1;
-}
-
 int CameraConfig::GetSubType(GUID guid, char* buffer) {
 	memset(buffer, 0, 256);
 	if (guid == MEDIASUBTYPE_YUY2) {
@@ -61,18 +30,6 @@ int CameraConfig::GetSubType(GUID guid, char* buffer) {
 	return -1;
 }
 
-int CameraConfig::GetFormatType(GUID guid, char* buffer) {
-	memset(buffer, 0, 256);
-	if (guid == FORMAT_VideoInfo) {
-		snprintf(buffer, 256, "FORMAT_VideoInfo");
-		return 0;
-	}
-	if (guid == FORMAT_VideoInfo2) {
-		snprintf(buffer, 256, "FORMAT_VideoInfo2");
-		return 0;
-	}
-	return -1;
-}
 /*
 void AddCameraInfo(CameraDeviceInfo &camera_info, const std::string &data_type,
 	const std::string &data_info)
@@ -145,19 +102,8 @@ CameraDeviceInfo CameraConfig::GetCameraDeviceInfo(IMoniker* pMoniker)
 		mtEnum->Reset();
 		ULONG mt_fetched = 0;
 		while (SUCCEEDED(mtEnum->Next(1, &mt, &mt_fetched)) && mt_fetched) {
-			char majorbuf[256];
-			if (GetMajorType(mt->majortype, majorbuf) != 0) {
-				GuidToString(mt->majortype, majorbuf);
-			}
 			char subtypebuf[256];
-			if (GetSubType(mt->subtype, subtypebuf) != 0) {
-				GuidToString(mt->subtype, subtypebuf);
-			}
-			char formatbuf[256];
-			if (GetFormatType(mt->formattype, formatbuf) != 0) {
-				GuidToString(mt->formattype, formatbuf);
-			}
-
+			GetSubType(mt->subtype, subtypebuf);
 			BITMAPINFOHEADER* bmi = NULL;
 			int avg_time;
 			if (mt->formattype == FORMAT_VideoInfo) {
@@ -182,9 +128,9 @@ CameraDeviceInfo CameraConfig::GetCameraDeviceInfo(IMoniker* pMoniker)
 				camera_info.data_bit.insert(std::to_string(bmi->biBitCount));
 				camera_info.data_fps.insert(std::to_string((int)1e7 / avg_time));
 			}
-		}  // end while
+		}  // end second while
 		pin->Release();
-	}  // end while
+	}  // end first while
 	return camera_info;
 }
 
@@ -234,7 +180,6 @@ std::vector<CameraDeviceInfo> CameraConfig::ListCameraDevice()
 			temp_camera_device_info.friend_name = str_temp;
 			device_list.push_back(temp_camera_device_info);
 			VariantClear(&var_name);
-//			ConfigCamera(pMoniker);
 		}
 		pPropBag->Release();
 		pMoniker->Release();
@@ -244,6 +189,7 @@ std::vector<CameraDeviceInfo> CameraConfig::ListCameraDevice()
 	return device_list;
 }
 
+/*
 void CameraConfig::ConfigCamera(IMoniker *pMoniker)
 {
 	ICaptureGraphBuilder2 *pCaptureGraphBuilder2;
@@ -276,3 +222,4 @@ void CameraConfig::ConfigCamera(IMoniker *pMoniker)
 //	_DeleteMediaType(pmt);
 
 }
+*/

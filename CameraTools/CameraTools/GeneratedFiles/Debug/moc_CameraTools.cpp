@@ -20,7 +20,7 @@
 QT_BEGIN_MOC_NAMESPACE
 struct qt_meta_stringdata_CameraTools_t {
     QByteArrayData data[11];
-    char stringdata0[202];
+    char stringdata0[191];
 };
 #define QT_MOC_LITERAL(idx, ofs, len) \
     Q_STATIC_BYTE_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(len, \
@@ -39,7 +39,7 @@ QT_MOC_LITERAL(6, 101, 9), // "paint_img"
 QT_MOC_LITERAL(7, 111, 22), // "combobox_camera_change"
 QT_MOC_LITERAL(8, 134, 26), // "combobox_imagestyle_change"
 QT_MOC_LITERAL(9, 161, 19), // "slider_value_change"
-QT_MOC_LITERAL(10, 181, 20) // "get_unexpected_abort"
+QT_MOC_LITERAL(10, 181, 9) // "get_abort"
 
     },
     "CameraTools\0button_startshow_click\0\0"
@@ -47,7 +47,7 @@ QT_MOC_LITERAL(10, 181, 20) // "get_unexpected_abort"
     "button_startcapture_click\0paint_img\0"
     "combobox_camera_change\0"
     "combobox_imagestyle_change\0"
-    "slider_value_change\0get_unexpected_abort"
+    "slider_value_change\0get_abort"
 };
 #undef QT_MOC_LITERAL
 
@@ -73,7 +73,7 @@ static const uint qt_meta_data_CameraTools[] = {
        7,    0,   64,    2, 0x08 /* Private */,
        8,    0,   65,    2, 0x08 /* Private */,
        9,    0,   66,    2, 0x08 /* Private */,
-      10,    0,   67,    2, 0x08 /* Private */,
+      10,    1,   67,    2, 0x08 /* Private */,
 
  // slots: parameters
     QMetaType::Void,
@@ -84,7 +84,7 @@ static const uint qt_meta_data_CameraTools[] = {
     QMetaType::Void,
     QMetaType::Void,
     QMetaType::Void,
-    QMetaType::Void,
+    QMetaType::Void, QMetaType::Int,    2,
 
        0        // eod
 };
@@ -103,11 +103,10 @@ void CameraTools::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id,
         case 5: _t->combobox_camera_change(); break;
         case 6: _t->combobox_imagestyle_change(); break;
         case 7: _t->slider_value_change(); break;
-        case 8: _t->get_unexpected_abort(); break;
+        case 8: _t->get_abort((*reinterpret_cast< int(*)>(_a[1]))); break;
         default: ;
         }
     }
-    Q_UNUSED(_a);
 }
 
 const QMetaObject CameraTools::staticMetaObject = {

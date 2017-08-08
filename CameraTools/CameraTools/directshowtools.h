@@ -17,7 +17,7 @@ extern "C" {
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/opencv.hpp>
 
-// 相机初始化
+// 相机初始化结果参数
 #define DST_CAMERA_INIT_ERROR -1
 #define DST_CAMERA_INIT_OK 0
 
@@ -37,15 +37,16 @@ extern "C" {
 #define DST_SAVEVIDEO_SAVING 2
 #define DST_SAVEVIDEO_END 3
 
-// 录像初始化状态
+// 录像初始化结果参数
 #define DST_SAVEVIDEO_INIT_ERROR -1
 #define DST_SAVEVIDEO_INIT_OK 0
 
-// 图像风格
+// 图像风格状态参数
 #define DST_IMAGESTYLE_NORMAL 0
 #define DST_IMAGESTYLE_GRAY 1
 #define DST_IMAGESTYLE_OIL 2
 
+// 与摄像头相关的一套配置参数
 struct PreviewCameraInfo {
 	std::string name;
 	std::string type;
@@ -60,23 +61,22 @@ class DirectShowTools : public QThread
 
 public:
     DirectShowTools();
-	void AddWaterMask(cv::Mat& img);					 // 添加水印时的处理函数
+	~DirectShowTools();
+	AVStream *AddVideoStream(enum AVCodecID codec_id);   // 实现配置输出文件参数
+	
 	int MP4OutputConfig(const std::string& output_name); // 存储为MP4文件的初始化配置
-
-	/* 
-	 * 引用几个函数修改自muxing.c 文档
-	 */
-	AVStream *AddVideoStream(enum AVCodecID codec_id);   
-	void OpenOutputVideo();								 
-	void WriteVideoFrame(int &pts_num);
-	int FlushEncoder(unsigned int stream_index);		// 在退出时将剩余的图像数据输出到文件
-	void DestoryInputParam();							
-	void DestoryVideoParam();
+	int FlushEncoder(unsigned int stream_index);		 // 在退出时将剩余的图像数据输出到文件
 	int CameraInputInit(PreviewCameraInfo cInfo, int &video_stream); // 获取摄像头图像数据的初始化函数
-	int GetImageData(int& video_stream, AVPacket& packet, SwsContext* &img_convert_ctx);
-	void SaveVideo(cv::Mat& img);
-	void GrabImage(cv::Mat& img);
-	void PreviewImage(cv::Mat& img);
+	int GetImageData(int& video_stream, AVPacket& packet, SwsContext* &img_convert_ctx); // 获取摄像头图像数据
+	void AddWaterMask(cv::Mat& img);					 // 添加水印时的处理函数
+	void OpenOutputVideo();								 // 打开输出文件的编码器以及编码参数
+	void WriteVideoFrame(int &pts_num);					 // 向文件中写入编码后的视频数据
+	void SaveVideo(cv::Mat& img);						 // 本地录像的主函数，里面实现了正常，黑白和油画风格切换
+	void GrabImage(cv::Mat& img);						 // 抓拍功能主函数
+	void PreviewImage(cv::Mat& img);					 // 预览主函数，在里面实现正常，黑白和油画风格切换，并将图像数据写入缓冲队列
+	void DestoryInputParam();							 // 结束预览时释放相关输入参数
+	void DestoryVideoParam();							 // 结束录像时释放相关输入参数
+	void FreeImgBuffer();								 // 结束时释放所有Mat数据类型
 
 	void SetWaterMaskFlag(int flag);
 	void SetTransparency(int value);
@@ -84,27 +84,27 @@ public:
 	void SetMaskImg(cv::Mat img);
 	void SetWaterMaskGifImg(std::vector<cv::Mat> img);
 	void SetMaskGifImg(std::vector<cv::Mat> img);
-	void SetInternal(int num);//
-	int GetInternal();//
 	void SetGrabImgFlag(int flag);
-	int GetGrabImgFlag();
 	void SetSaveVideoFlag(int flag);
-	int GetSaveVideoFlag();//
 	void SetCameraInfo(PreviewCameraInfo cInfo);
-	PreviewCameraInfo GetCameraInfo();
 	void SetSaveVideoPath(std::string str);
-	std::string GetSaveVideoPath();//
-	void SetThreadStop(bool flag);//
-	bool GetThreadStop();//
 	void GetImageBuffer(QImage& Qimg);
 	void SetImageStyle(int flag);
+	void SetThreadStop(bool flag);//
+	void SetInternal(int num);//
+	int GetInternal();//
+	int GetGrabImgFlag();
+	int GetSaveVideoFlag();//
+	bool GetThreadStop();//
+	PreviewCameraInfo GetCameraInfo();
+	std::string GetSaveVideoPath();//
 
 protected:
 	void run();								// 获取数据与存储数据的工作线程
 signals:
-	void SendUpdataImgMsg();		 
-	void SendImageGrabMsg();				// 发送抓拍图像信号给指定槽函数
-	void SendUnexpectedAbort();				// 发送意外终止信号
+	void SendUpdataImgMsg();				// 发送更新界面图像的信号
+	void SendImageGrabMsg();				// 发送抓拍图像信号
+	void SendAbort(int ret);				// 发送意外终止信号
 
 private slots:
 	void SaveGrabImage();					// 接受抓图信号，进行存图
@@ -129,17 +129,17 @@ private:
 	int m_GrabImgFlag;
 	int m_SaveVideoFlag;
 	int m_PtsNum;
+	int m_ImageStyle;
+	bool b_ThreadStop;
 	cv::Mat m_WaterMaskImg;
 	cv::Mat m_MaskImg;
 	cv::Mat m_GrabImgMat;
 	std::vector<cv::Mat> m_WaterMaskGifImg;
 	std::vector<cv::Mat> m_MaskGifImg;
-	PreviewCameraInfo m_CameraInfo;
-	std::string m_SaveVideoPath;
-	bool b_ThreadStop;	
-	int m_ImageStyle;
 	std::queue<QImage> m_ImageBuf;
-	CRITICAL_SECTION m_lock;
+	std::string m_SaveVideoPath;
+	PreviewCameraInfo m_CameraInfo;
+	CRITICAL_SECTION m_PreviewLock;
 };
 
 #endif // DIRECTSHOWTOOLS_H

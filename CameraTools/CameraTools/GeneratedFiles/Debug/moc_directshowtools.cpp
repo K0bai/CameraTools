@@ -19,8 +19,8 @@
 
 QT_BEGIN_MOC_NAMESPACE
 struct qt_meta_stringdata_DirectShowTools_t {
-    QByteArrayData data[6];
-    char stringdata0[85];
+    QByteArrayData data[7];
+    char stringdata0[79];
 };
 #define QT_MOC_LITERAL(idx, ofs, len) \
     Q_STATIC_BYTE_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(len, \
@@ -33,12 +33,13 @@ QT_MOC_LITERAL(0, 0, 15), // "DirectShowTools"
 QT_MOC_LITERAL(1, 16, 16), // "SendUpdataImgMsg"
 QT_MOC_LITERAL(2, 33, 0), // ""
 QT_MOC_LITERAL(3, 34, 16), // "SendImageGrabMsg"
-QT_MOC_LITERAL(4, 51, 19), // "SendUnexpectedAbort"
-QT_MOC_LITERAL(5, 71, 13) // "SaveGrabImage"
+QT_MOC_LITERAL(4, 51, 9), // "SendAbort"
+QT_MOC_LITERAL(5, 61, 3), // "ret"
+QT_MOC_LITERAL(6, 65, 13) // "SaveGrabImage"
 
     },
     "DirectShowTools\0SendUpdataImgMsg\0\0"
-    "SendImageGrabMsg\0SendUnexpectedAbort\0"
+    "SendImageGrabMsg\0SendAbort\0ret\0"
     "SaveGrabImage"
 };
 #undef QT_MOC_LITERAL
@@ -59,15 +60,15 @@ static const uint qt_meta_data_DirectShowTools[] = {
  // signals: name, argc, parameters, tag, flags
        1,    0,   34,    2, 0x06 /* Public */,
        3,    0,   35,    2, 0x06 /* Public */,
-       4,    0,   36,    2, 0x06 /* Public */,
+       4,    1,   36,    2, 0x06 /* Public */,
 
  // slots: name, argc, parameters, tag, flags
-       5,    0,   37,    2, 0x08 /* Private */,
+       6,    0,   39,    2, 0x08 /* Private */,
 
  // signals: parameters
     QMetaType::Void,
     QMetaType::Void,
-    QMetaType::Void,
+    QMetaType::Void, QMetaType::Int,    5,
 
  // slots: parameters
     QMetaType::Void,
@@ -83,7 +84,7 @@ void DirectShowTools::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int 
         switch (_id) {
         case 0: _t->SendUpdataImgMsg(); break;
         case 1: _t->SendImageGrabMsg(); break;
-        case 2: _t->SendUnexpectedAbort(); break;
+        case 2: _t->SendAbort((*reinterpret_cast< int(*)>(_a[1]))); break;
         case 3: _t->SaveGrabImage(); break;
         default: ;
         }
@@ -105,14 +106,13 @@ void DirectShowTools::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int 
             }
         }
         {
-            typedef void (DirectShowTools::*_t)();
-            if (*reinterpret_cast<_t *>(func) == static_cast<_t>(&DirectShowTools::SendUnexpectedAbort)) {
+            typedef void (DirectShowTools::*_t)(int );
+            if (*reinterpret_cast<_t *>(func) == static_cast<_t>(&DirectShowTools::SendAbort)) {
                 *result = 2;
                 return;
             }
         }
     }
-    Q_UNUSED(_a);
 }
 
 const QMetaObject DirectShowTools::staticMetaObject = {
@@ -164,8 +164,9 @@ void DirectShowTools::SendImageGrabMsg()
 }
 
 // SIGNAL 2
-void DirectShowTools::SendUnexpectedAbort()
+void DirectShowTools::SendAbort(int _t1)
 {
-    QMetaObject::activate(this, &staticMetaObject, 2, Q_NULLPTR);
+    void *_a[] = { Q_NULLPTR, const_cast<void*>(reinterpret_cast<const void*>(&_t1)) };
+    QMetaObject::activate(this, &staticMetaObject, 2, _a);
 }
 QT_END_MOC_NAMESPACE

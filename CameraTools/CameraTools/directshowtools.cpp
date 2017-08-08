@@ -10,13 +10,20 @@ DirectShowTools::DirectShowTools()
 	m_ShowIndex = 0;
 	m_Internal = 0;
 	m_Transparency = 0;
-	m_GrabImgFlag = 0;
+	m_GrabImgFlag = DST_GRAB_READY;
 	m_SaveVideoFlag = DST_SAVEVIDEO_NONE;
 	m_ImageStyle = DST_IMAGESTYLE_NORMAL;
-	InitializeCriticalSection(&m_lock);
-
+	InitializeCriticalSection(&m_PreviewLock);
 	connect(this, SIGNAL(SendImageGrabMsg()), this,
 		SLOT(SaveGrabImage()), Qt::QueuedConnection);
+}
+
+DirectShowTools::~DirectShowTools()
+{
+	DeleteCriticalSection(&m_PreviewLock);
+//	DestoryInputParam();
+//	DestoryVideoParam();
+	FreeImgBuffer();
 }
 
 void DirectShowTools::SetWaterMaskFlag(int flag)
@@ -127,7 +134,7 @@ void DirectShowTools::DestoryInputParam()
 void DirectShowTools::DestoryVideoParam()
 {
 	if (m_OutputCodecCtx != NULL) {
-	//	avcodec_close(m_OutputCodecCtx);
+		avcodec_close(m_OutputCodecCtx);
 	}
 	if (m_OutputFormatCtx != NULL) {
 		avio_close(m_OutputFormatCtx->pb);
@@ -141,40 +148,36 @@ void DirectShowTools::DestoryVideoParam()
 			av_free(m_PictureBuff);
 			av_free(m_VideoOutBuff);
 		}
-		avcodec_close(m_OutputVideoStream->codec);
 	}
 }
 
-int DirectShowTools::FlushEncoder(unsigned int stream_index) 
+void DirectShowTools::FreeImgBuffer()
 {
-    int ret;
-    int got_frame;
-    AVPacket enc_pkt;
-    if (!(m_OutputFormatCtx->streams[stream_index]->codec->codec->capabilities &
-        CODEC_CAP_DELAY))
-        return 0;
-    while (1) {
-        enc_pkt.data = NULL;
-        enc_pkt.size = 0;
-        av_init_packet(&enc_pkt);
-        ret = avcodec_encode_video2(m_OutputFormatCtx->streams[stream_index]->codec,
-			&enc_pkt, NULL, &got_frame);
-        av_frame_free(NULL);
-		if (ret < 0) {
-			break;
-		}
-        if (!got_frame) {
-            ret = 0;
-            break;
-        }
-        ret = av_write_frame(m_OutputFormatCtx, &enc_pkt);
-		if (ret < 0) {
-			break;
-		}
-    }
-    return ret;
+	if (!m_WaterMaskImg.empty()) {
+		m_WaterMaskImg.release();
+	}
+	if (!m_MaskImg.empty()) {
+		m_MaskImg.release();
+	}
+	if (!m_GrabImgMat.empty()) {
+		m_GrabImgMat.release();
+	}
+	if (!m_WaterMaskGifImg.empty()) {
+		m_WaterMaskGifImg.clear();
+	}
+	if (!m_MaskGifImg.empty()) {
+		m_MaskGifImg.empty();
+	}
+	if (!m_ImageBuf.empty()) {
+		m_ImageBuf.empty();
+	}
 }
 
+// 摄像头初始化函数
+// 参数1 输入的需要设置的摄像头参数
+// 参数2 摄像头输入数据中视频数据的索引
+// 返回值小于0，则初始化不成功
+// 返回值大于等于0，初始化成功
 int DirectShowTools::CameraInputInit(PreviewCameraInfo cInfo, int &video_stream)
 {
 	avdevice_register_all();
@@ -208,7 +211,6 @@ int DirectShowTools::CameraInputInit(PreviewCameraInfo cInfo, int &video_stream)
 		return -1;
 	}
     m_InputCodecCtx = m_InputFormatCtx->streams[video_stream]->codec;
-
     pCodec = avcodec_find_decoder(m_InputCodecCtx->codec_id);
 	if (pCodec == NULL) {
 		return -1;
@@ -231,6 +233,41 @@ int DirectShowTools::CameraInputInit(PreviewCameraInfo cInfo, int &video_stream)
 	return 0;
 }
 
+
+// 解码从摄像头获取的数据包
+// 参数1 摄像头数据中视频流的索引
+// 参数2 从摄像头获取的数据包
+// 参数3 SwsContext*对象，用于数据的格式转换
+// 若返回小于0，则解码数据失败
+// 若返回大于等于0，则解码成功
+int DirectShowTools::GetImageData(int& video_stream, AVPacket& packet, SwsContext* &img_convert_ctx)
+{
+	if (packet.stream_index != video_stream) {
+		return -1;
+	}
+	int frameFinished = 0;
+	avcodec_decode_video2(m_InputCodecCtx, m_InputFrame, &frameFinished, &packet);
+	if (!frameFinished) {
+		return -1;
+	}
+
+	img_convert_ctx = sws_getCachedContext(NULL,
+		m_InputCodecCtx->width,
+		m_InputCodecCtx->height,
+		m_InputCodecCtx->pix_fmt,
+		m_InputCodecCtx->width,
+		m_InputCodecCtx->height,
+		AV_PIX_FMT_BGR24, SWS_BICUBIC, NULL, NULL, NULL);
+	sws_scale(img_convert_ctx, ((AVPicture*)m_InputFrame)->data,
+		((AVPicture*)m_InputFrame)->linesize, 0, m_InputCodecCtx->height,
+		((AVPicture *)m_InputFrameRGB)->data, ((AVPicture *)m_InputFrameRGB)->linesize);
+	return 0;
+}
+
+// 录像时的初始化配置函数
+// 参数1 录像文件存储名
+// 返回值小于0，则初始化失败
+// 返回值大于等于0，则初始化成功
 int DirectShowTools::MP4OutputConfig(const std::string& output_name)
 {
 	avformat_alloc_output_context2(&m_OutputFormatCtx, NULL,
@@ -268,17 +305,18 @@ int DirectShowTools::MP4OutputConfig(const std::string& output_name)
 		m_OutputCodecCtx->width, m_OutputCodecCtx->height);
 
 	m_PictureBuff = (uint8_t *)av_malloc(m_VideoOutBuffSize);
-
 	avpicture_fill((AVPicture *)m_OutputFrame, m_PictureBuff, 
 		m_OutputCodecCtx->pix_fmt, m_OutputCodecCtx->width, 
 		m_OutputCodecCtx->height);
-
 	m_VideoOutBuff = (uint8_t *)av_malloc(m_VideoOutBuffSize);
 
 	return 0;
 }
 
-
+// 修改自ffmpeg官方文档muxing.c
+// 输入参数即视频流编码方式
+// 返回配置好的AVStream*
+// 配置参数包括图像大小，帧率等常用视频编码参数
 AVStream* DirectShowTools::AddVideoStream(enum AVCodecID codec_id)
 {
 	AVCodecContext *c;
@@ -330,6 +368,8 @@ AVStream* DirectShowTools::AddVideoStream(enum AVCodecID codec_id)
 	return st;
 }
 
+// 修改自ffmpeg官方文档muxing.c
+// 打开所配置的视频编码AVCodecContext
 void DirectShowTools::OpenOutputVideo()
 {
 	AVCodec *codec;
@@ -340,19 +380,21 @@ void DirectShowTools::OpenOutputVideo()
 	/* find the video encoder */
 	codec = avcodec_find_encoder(c->codec_id);
 	if (!codec) {
-		fprintf(stderr, "codec not found\n");
+		return;
 	}
-
 	AVDictionary *param = 0;
 	av_dict_set(&param, "preset", "superfast", 0);
 	av_dict_set(&param, "tune", "zerolatency", 0);
 
 	/* open the codec */
 	if (avcodec_open2(c, codec, &param) < 0) {
-		fprintf(stderr, "could not open codec\n");
+		return;
 	}
 }
 
+// 修改自ffmpeg官方文档muxing.c
+// 参数1 输入当前帧的显示时间戳
+// 可实现将当前帧进行编码并写入到文件中
 void DirectShowTools::WriteVideoFrame(int &pts_num)
 {
 	if (m_OutputFormatCtx->oformat->flags & AVFMT_RAWPICTURE) {
@@ -372,25 +414,61 @@ void DirectShowTools::WriteVideoFrame(int &pts_num)
 		out_size = avcodec_encode_video(m_OutputVideoStream->codec, 
 			m_VideoOutBuff,m_VideoOutBuffSize, m_OutputFrame);
 
-		if (out_size > 0) {
-			AVPacket pkt;
-			av_init_packet(&pkt);
-
-			if (m_OutputVideoStream->codec->coded_frame->pts != AV_NOPTS_VALUE) {
-				pkt.pts = av_rescale_q(m_OutputVideoStream->codec->coded_frame->pts, 
-					m_OutputVideoStream->codec->time_base, m_OutputVideoStream->time_base);
-			}
-			if (m_OutputVideoStream->codec->coded_frame->key_frame) {
-				pkt.flags |= AV_PKT_FLAG_KEY;
-			}
-			pkt.stream_index = m_OutputVideoStream->index;
-			pkt.data = m_VideoOutBuff;
-			pkt.size = out_size;
-			av_interleaved_write_frame(m_OutputFormatCtx, &pkt);
+		if (out_size <= 0) {
+			return;
 		}
+		AVPacket pkt;
+		av_init_packet(&pkt);
+
+		if (m_OutputVideoStream->codec->coded_frame->pts != AV_NOPTS_VALUE) {
+			pkt.pts = av_rescale_q(m_OutputVideoStream->codec->coded_frame->pts, 
+				m_OutputVideoStream->codec->time_base, m_OutputVideoStream->time_base);
+		}
+		if (m_OutputVideoStream->codec->coded_frame->key_frame) {
+			pkt.flags |= AV_PKT_FLAG_KEY;
+		}
+		pkt.stream_index = m_OutputVideoStream->index;
+		pkt.data = m_VideoOutBuff;
+		pkt.size = out_size;
+		av_interleaved_write_frame(m_OutputFormatCtx, &pkt);
 	}
 }
 
+int DirectShowTools::FlushEncoder(unsigned int stream_index)
+{
+	int ret;
+	int got_frame;
+	AVPacket enc_pkt;
+	if (!(m_OutputFormatCtx->streams[stream_index]->codec->codec->capabilities &
+		CODEC_CAP_DELAY))
+		return 0;
+	while (1) {
+		enc_pkt.data = NULL;
+		enc_pkt.size = 0;
+		av_init_packet(&enc_pkt);
+		ret = avcodec_encode_video2(
+			m_OutputFormatCtx->streams[stream_index]->codec,
+			&enc_pkt, NULL, &got_frame);
+		av_frame_free(NULL);
+		if (ret < 0) {
+			break;
+		}
+		if (!got_frame) {
+			ret = 0;
+			break;
+		}
+		ret = av_write_frame(m_OutputFormatCtx, &enc_pkt);
+		if (ret < 0) {
+			break;
+		}
+	}
+	av_free_packet(&enc_pkt);
+	return ret;
+}
+
+// 添加水印功能函数
+// 参数1 输入当前摄像头获取的图像数据
+// 可实现将水印与当前帧图像合并
 void DirectShowTools::AddWaterMask(cv::Mat& img)
 {
 	if (m_WaterMaskFlag <= DST_WATERMASK_NONE) {
@@ -422,7 +500,7 @@ void DirectShowTools::AddWaterMask(cv::Mat& img)
 			img(cv::Rect(10, 10, m_WaterMaskGifImg[i].cols, m_WaterMaskGifImg[i].rows)),
 			m_MaskGifImg[i], -1);
 
-		if (m_Internal >= 4) {
+		if (m_Internal >= 4 /*该值可以之后设置*/) {
 			m_ShowIndex++;
 			m_Internal = 0;
 		}
@@ -434,6 +512,9 @@ void DirectShowTools::AddWaterMask(cv::Mat& img)
 	}
 }
 
+// 抓拍图像
+// 参数1 输入当前显示帧图像
+// 将当前帧图像copy，并发送信号进行存储
 void DirectShowTools::GrabImage(cv::Mat& img)
 {
 	if (m_GrabImgFlag == DST_GRAB_PROCESSING) {
@@ -443,6 +524,7 @@ void DirectShowTools::GrabImage(cv::Mat& img)
 	}
 }
 
+// 存储抓拍图像
 void DirectShowTools::SaveGrabImage()
 {
 	QDateTime time = QDateTime::currentDateTime();
@@ -452,6 +534,7 @@ void DirectShowTools::SaveGrabImage()
 	m_GrabImgFlag = DST_GRAB_READY;
 }
 
+/* 油画处理部分，还需修改
 void OilPaint(cv::Mat& I, int brushSize, int coarseness)
 {
 	assert(!I.empty());
@@ -544,12 +627,17 @@ void OilPaint(cv::Mat& I, int brushSize, int coarseness)
 	delete[] RedAverage;
 	delete[] GreenAverage;
 	delete[] BlueAverage;
-	I = dst.clone();
+	dst.copyTo(I);
+//	I = dst.clone();
 }
+*/
 
+// 预览功能图像处理函数
+// 参数1 输入解码后的图像数据
+// 根据当前显示风格进行不同的处理（目前还不支持油画）
+// 处理完成将图像数据放入缓冲队列
 void DirectShowTools::PreviewImage(cv::Mat& img)
 {
-	cv::Mat dst(img.size(), img.type());
 	QImage Qimg;
 	switch (m_ImageStyle)
 	{
@@ -562,10 +650,10 @@ void DirectShowTools::PreviewImage(cv::Mat& img)
 	}
 	case DST_IMAGESTYLE_OIL:
 	{
-		OilPaint(img, 3, 50);
-		cv::cvtColor(dst, dst, CV_BGR2RGB);	 
-		Qimg = QImage((const unsigned char*)(dst.data), dst.cols,
-			dst.rows, dst.cols*dst.channels(), QImage::Format_RGB888);
+//		OilPaint(img, 3, 50);
+		cv::cvtColor(img, img, CV_BGR2RGB);	 
+		Qimg = QImage((const unsigned char*)(img.data), img.cols,
+			img.rows, img.cols*img.channels(), QImage::Format_RGB888);
 		break;
 	}
 	case DST_IMAGESTYLE_GRAY:
@@ -590,23 +678,30 @@ void DirectShowTools::PreviewImage(cv::Mat& img)
 		break;
 	}
 
-	EnterCriticalSection(&m_lock);
+	EnterCriticalSection(&m_PreviewLock);
 	while (m_ImageBuf.size() > 30) {
 		m_ImageBuf.pop();
 	}
 	m_ImageBuf.push(Qimg);
-	LeaveCriticalSection(&m_lock);
+	LeaveCriticalSection(&m_PreviewLock);
 	emit SendUpdataImgMsg();
 }
 
+// 得到待显示的摄像头图像数据
+// 参数1 需要显示的QImage对象
+// 从缓冲队列头部拿出图像数据
 void DirectShowTools::GetImageBuffer(QImage& Qimg)
 {
-	EnterCriticalSection(&m_lock);
+	EnterCriticalSection(&m_PreviewLock);
 	Qimg = m_ImageBuf.front();
 	m_ImageBuf.pop();
-	LeaveCriticalSection(&m_lock);
+	LeaveCriticalSection(&m_PreviewLock);
 }
 
+// 录像功能主函数
+// 参数1 待编码存储的图像数据
+// 根据当前录像状态参数进行初始化，编码存储，
+// 直接返回或者将数据写入文件尾，
 void DirectShowTools::SaveVideo(cv::Mat& img)
 {
 	if (m_SaveVideoFlag == DST_SAVEVIDEO_NONE) {
@@ -624,52 +719,40 @@ void DirectShowTools::SaveVideo(cv::Mat& img)
 		m_SaveVideoFlag = DST_SAVEVIDEO_SAVING;
 	}
 	else if (m_SaveVideoFlag == DST_SAVEVIDEO_SAVING) {
-		SwsContext* pSwsCxt = sws_getContext(m_InputCodecCtx->width,
-			m_InputCodecCtx->height, /*PIX_FMT_RGB24*/PIX_FMT_GRAY8,m_InputCodecCtx->width, 
-			m_InputCodecCtx->height, PIX_FMT_YUV420P, SWS_BILINEAR, NULL, NULL, NULL);
 		uint8_t *rgb_src[3] = { img.data, NULL, NULL };
-		int rgb_stride[3] = {/* 3 **/ m_InputCodecCtx->width, 0, 0 };
-
-		sws_scale(pSwsCxt, rgb_src, rgb_stride,0, m_InputCodecCtx->height, 
-			((AVPicture *)m_OutputFrame)->data, ((AVPicture *)m_OutputFrame)->linesize);
-
+		SwsContext* pSwsCxt;
+		if (m_ImageStyle == DST_IMAGESTYLE_GRAY) {
+			pSwsCxt = sws_getContext(m_InputCodecCtx->width,
+				m_InputCodecCtx->height, PIX_FMT_GRAY8, m_InputCodecCtx->width,
+				m_InputCodecCtx->height, PIX_FMT_YUV420P, SWS_BILINEAR, NULL, NULL, NULL);
+			int rgb_stride[3] = { m_InputCodecCtx->width, 0, 0 };
+			sws_scale(pSwsCxt, rgb_src, rgb_stride, 0, m_InputCodecCtx->height,
+				((AVPicture *)m_OutputFrame)->data, ((AVPicture *)m_OutputFrame)->linesize);
+		}
+		else {
+			pSwsCxt = sws_getContext(m_InputCodecCtx->width,
+				m_InputCodecCtx->height, PIX_FMT_RGB24, m_InputCodecCtx->width,
+				m_InputCodecCtx->height, PIX_FMT_YUV420P, SWS_BILINEAR, NULL, NULL, NULL);
+			int rgb_stride[3] = { 3 * m_InputCodecCtx->width, 0, 0 };
+			sws_scale(pSwsCxt, rgb_src, rgb_stride, 0, m_InputCodecCtx->height,
+				((AVPicture *)m_OutputFrame)->data, ((AVPicture *)m_OutputFrame)->linesize);
+		}
 		WriteVideoFrame(m_PtsNum);
 		m_PtsNum++;
 		sws_freeContext(pSwsCxt);
 	}
 	else {
 		m_SaveVideoFlag = DST_SAVEVIDEO_NONE;
-		FlushEncoder(0);
+//		FlushEncoder(0);
 		av_write_trailer(m_OutputFormatCtx);
 		DestoryVideoParam();
 	}
 	
 }
 
-int DirectShowTools::GetImageData(int& video_stream, AVPacket& packet, SwsContext* &img_convert_ctx)
-{
-	if (packet.stream_index != video_stream) {
-		return -1;
-	}
-	int frameFinished = 0;
-	avcodec_decode_video2(m_InputCodecCtx, m_InputFrame, &frameFinished, &packet);
-	if (!frameFinished) {
-		return -1;
-	}
-	
-	img_convert_ctx = sws_getCachedContext(NULL, 
-		m_InputCodecCtx->width,
-		m_InputCodecCtx->height, 
-		m_InputCodecCtx->pix_fmt,
-		m_InputCodecCtx->width, 
-		m_InputCodecCtx->height,
-		AV_PIX_FMT_BGR24, SWS_BICUBIC, NULL, NULL, NULL);
-	sws_scale(img_convert_ctx, ((AVPicture*)m_InputFrame)->data,
-		((AVPicture*)m_InputFrame)->linesize, 0, m_InputCodecCtx->height,
-		((AVPicture *)m_InputFrameRGB)->data, ((AVPicture *)m_InputFrameRGB)->linesize);
-	return 0;
-}
-
+// 主要线程运行函数
+// while循环一直不断的从摄像头读取数据包
+// 在即将退出该函数时向主UI线程发送结束信号
 void DirectShowTools::run()
 {
 	int video_stream = 1;
@@ -684,7 +767,7 @@ void DirectShowTools::run()
 			break;
 		}
 		SwsContext * img_convert_ctx;
-		ret = GetImageData(video_stream, packet, img_convert_ctx);	// 得到图像数据	
+		ret = GetImageData(video_stream, packet, img_convert_ctx);	// 解码图像数据	
 		if (ret < 0) {
 			continue;
 		}
@@ -692,16 +775,14 @@ void DirectShowTools::run()
 			CV_8UC3, m_InputFrameRGB->data[0]);
 
 		AddWaterMask(img);		// 添加水印
-		PreviewImage(img);		// 预览图像
 		GrabImage(img);			// 抓拍图像
+		PreviewImage(img);		// 预览图像
 		SaveVideo(img);			// 保存视频
 
 		cvWaitKey(1);
 		sws_freeContext(img_convert_ctx);
 		av_free_packet(&packet);
 	}
-	if (ret < 0) {
-		SendUnexpectedAbort();
-	}
+	SendAbort(ret);
 	DestoryInputParam();
 }

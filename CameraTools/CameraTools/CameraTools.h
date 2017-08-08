@@ -17,20 +17,17 @@
 #define CT_WATERMASK_MAX_HEIGHT 200
 #define CT_WATERMASK_MIN_WIDTH 200
 
-
-
 class CameraTools : public QMainWindow
 {
 	Q_OBJECT
 
 public:
 	CameraTools(QWidget *parent = Q_NULLPTR);
-	void DetectCamera();														// 用于检测系统中可以使用的摄像头
+	void DetectCamera();					// 用于检测系统中可以使用的摄像头
+	void WriteRecord(QString msg);			// 输出日志记录
+	void UpdateControl(int flag);			// 更新界面控件
 	void ShowCameraInfo(std::vector<CameraDeviceInfo>& camera_info, int index); // 用于展示检测出的摄像头的具体数据
-	PreviewCameraInfo GetCameraParam();
-
-	void WriteRecord(QString msg);
-	void UpdateControl(int flag);
+	PreviewCameraInfo GetCameraParam();		// 得到从界面设置的摄像头参数
 
 	/*
 	 * 下面两个函数用于处理GIF图像作为水印的情况。
@@ -41,10 +38,11 @@ public:
 					 cv::Mat& gifImg, cv::Mat& maskImg);
 	int GifToMat(std::vector<cv::Mat>& gifImgs, std::vector<cv::Mat>& maskImgs, 
 				const char* filename);
-	int IsWaterMaskSizeOk(int height, int width);
+	int IsWaterMaskSizeOk(int height, int width);	// 用于判断添加水印大小是否合法
 
 protected:
-	bool nativeEvent(const QByteArray &eventType, void *message, long *result); // 用于硬件热拔插事件处理
+	bool nativeEvent(const QByteArray &eventType,
+					 void *message, long *result);	// 用于硬件热拔插事件处理
 
 private:
 	Ui::CameraToolsClass ui;
@@ -54,15 +52,15 @@ private:
 	std::vector<CameraDeviceInfo> m_CameraList;
 
 private slots:
-	void button_startshow_click();
-	void button_grab_click();
-	void button_addmask_click();
-	void button_startcapture_click();
-	void paint_img();
-	void combobox_camera_change();
-	void combobox_imagestyle_change();
-	void slider_value_change();
-	void get_unexpected_abort();
+	void button_startshow_click();		// 接收开始预览按钮click消息
+	void button_grab_click();			// 接收抓拍按钮click消息
+	void button_addmask_click();		// 接收添加水印按钮click消息
+	void button_startcapture_click();	// 接收开始录像按钮click消息
+	void paint_img();					// 接收绘制图像的消息
+	void combobox_camera_change();		// 接收摄像机列表索引变化事件
+	void combobox_imagestyle_change();	// 接收图像风格列表索引变化事件
+	void slider_value_change();			// 接收水印透明度滑块值变化事件
+	void get_abort(int);				// 接收终止预览的消息
 };
 
 #endif

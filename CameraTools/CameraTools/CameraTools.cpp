@@ -4,9 +4,6 @@
 #include <qfiledialog.h>
 #include <dbt.h>
 
-#pragma comment(lib, "FreeImage.lib")
-
-
 CameraTools::CameraTools(QWidget *parent)
 	: QMainWindow(parent)
 {
@@ -14,7 +11,6 @@ CameraTools::CameraTools(QWidget *parent)
 
 	b_CameraInitState = false;
 	m_CaptureState = CT_STOPPREVIEW;
-
 	ui.horizontalSlider_transparency->setMinimum(0);
 	ui.horizontalSlider_transparency->setMaximum(100);
 	ui.horizontalSlider_transparency->setValue(0);
@@ -23,7 +19,7 @@ CameraTools::CameraTools(QWidget *parent)
 	ui.comboBox_ImageStyle->addItems((QStringList)QStringLiteral("油画"));
 	ui.comboBox_ImageStyle->setCurrentIndex(0);
 	
-	DetectCamera();
+	DetectCamera();		// 初始化时直接检测可用摄像头
 	UpdateControl(CT_STOPPREVIEW);
 }
 
@@ -78,9 +74,11 @@ void CameraTools::DetectCamera()
 		b_CameraInitState = false;
 		return;
 	}
+
 	for (int i = 0; i < m_CameraList.size(); ++i) {
 		ui.comboBox_Camera->addItems((QStringList)m_CameraList[i].friend_name.c_str());
 	}
+
 	ui.comboBox_Camera->setCurrentIndex(0);
 	ShowCameraInfo(m_CameraList, 0);
 	b_CameraInitState = false;
@@ -140,7 +138,7 @@ int CameraTools::IsWaterMaskSizeOk(int height, int width)
 }
 
 void CameraTools::BitToMat(FIBITMAP* fiBmp, const FREE_IMAGE_FORMAT &fif,
-							  cv::Mat& gifImg, cv::Mat& maskImg)
+						   cv::Mat& gifImg, cv::Mat& maskImg)
 {
 	if (NULL == fiBmp || FIF_GIF != fif) {
 		return ;
@@ -157,7 +155,7 @@ void CameraTools::BitToMat(FIBITMAP* fiBmp, const FREE_IMAGE_FORMAT &fif,
 			gifImg.at<uchar>(height-1-i, 3*j+0) = pixels->rgbBlue;
 			gifImg.at<uchar>(height-1-i, 3*j+1) = pixels->rgbGreen;
 			gifImg.at<uchar>(height-1-i, 3*j+2) = pixels->rgbRed;
-			maskImg.at<uchar>(height - 1 - i, j) = pixels->rgbReserved;
+			maskImg.at<uchar>(height-1-i, j) = pixels->rgbReserved;
 		}
 	}
 }
@@ -232,8 +230,8 @@ void CameraTools::button_startshow_click()
 		m_Dst = new DirectShowTools();
 		connect(m_Dst, SIGNAL(SendUpdataImgMsg()), this,
 			SLOT(paint_img()), Qt::QueuedConnection);
-		connect(m_Dst, SIGNAL(SendUnexpectedAbort()), this,
-			SLOT(get_unexpected_abort()), Qt::QueuedConnection);
+		connect(m_Dst, SIGNAL(SendAbort(int)), this,
+			SLOT(get_abort(int)), Qt::QueuedConnection);
 		PreviewCameraInfo cInfo = GetCameraParam();
 		m_Dst->SetCameraInfo(cInfo);
 		m_Dst->start();
@@ -250,7 +248,7 @@ void CameraTools::button_startshow_click()
 			return ;
 		}
 		m_Dst->SetThreadStop(true);
-		WriteRecord(QStringLiteral("停止预览"));
+		WriteRecord(QStringLiteral("正在停止预览，请稍后……"));
 		m_CaptureState = CT_STOPPREVIEW;
 		UpdateControl(CT_STOPPREVIEW);
 		ui.pushButton_addmask->setText(QStringLiteral("添加水印"));
@@ -298,44 +296,43 @@ void CameraTools::button_addmask_click()
 			QStringLiteral("选择添加的水印图像"),
 			".",
 			tr("Image Files(*.gif *.jpg *.png)"));
-		if (path.length() != 0) {
-			char* filepath;
-			QByteArray tmp = path.toLatin1();
-			filepath = tmp.data();
+		if (path.length() == 0) {
+			m_Dst->SetWaterMaskFlag(DST_WATERMASK_NONE);
+			return;
+		}
+		char* filepath;
+		QByteArray tmp = path.toLatin1();
+		filepath = tmp.data();
 
-			if (path.endsWith(".gif")) {
-				std::vector<cv::Mat> tempGif, tempMask;
-				GifToMat(tempGif, tempMask, filepath);
-				if (tempGif.size() != 0 &&
-					(IsWaterMaskSizeOk(tempGif[0].rows, tempGif[0].cols)
-						== CT_WATERMASK_ERROR)) {
-					WriteRecord(QStringLiteral("水印尺寸不符合"));
-					return;
-				}
-				m_Dst->SetWaterMaskGifImg(tempGif);
-				m_Dst->SetMaskGifImg(tempMask);
-				m_Dst->SetWaterMaskFlag(DST_WATERMASK_GIF);
+		if (path.endsWith(".gif")) {
+			std::vector<cv::Mat> tempGif, tempMask;
+			GifToMat(tempGif, tempMask, filepath);
+			if (tempGif.size() != 0 &&
+				(IsWaterMaskSizeOk(tempGif[0].rows, tempGif[0].cols)
+					== CT_WATERMASK_ERROR)) {
+				WriteRecord(QStringLiteral("水印尺寸不符合"));
+				return;
 			}
-			else {
-				cv::Mat srcImg, maskImg;
-				srcImg = cv::imread(filepath);
-				if (IsWaterMaskSizeOk(srcImg.rows, srcImg.cols)
-					== CT_WATERMASK_ERROR) {
-					WriteRecord(QStringLiteral("水印尺寸不符合"));
-					return;
-				}
-				m_Dst->SetWaterMaskImg(srcImg);
-				maskImg = cv::imread(filepath, 0);
-				m_Dst->SetMaskImg(maskImg);
-				m_Dst->SetWaterMaskFlag(DST_WATERMASK_RGB);
-			}
-			WriteRecord(QStringLiteral("添加水印"));
-			ui.horizontalSlider_transparency->setVisible(true);
-			ui.pushButton_addmask->setText(QStringLiteral("删除水印"));
+			m_Dst->SetWaterMaskGifImg(tempGif);
+			m_Dst->SetMaskGifImg(tempMask);
+			m_Dst->SetWaterMaskFlag(DST_WATERMASK_GIF);
 		}
 		else {
-			m_Dst->SetWaterMaskFlag(DST_WATERMASK_NONE);
+			cv::Mat srcImg, maskImg;
+			srcImg = cv::imread(filepath);
+			if (IsWaterMaskSizeOk(srcImg.rows, srcImg.cols)
+				== CT_WATERMASK_ERROR) {
+				WriteRecord(QStringLiteral("水印尺寸不符合"));
+				return;
+			}
+			m_Dst->SetWaterMaskImg(srcImg);
+			maskImg = cv::imread(filepath, 0);
+			m_Dst->SetMaskImg(maskImg);
+			m_Dst->SetWaterMaskFlag(DST_WATERMASK_RGB);
 		}
+		WriteRecord(QStringLiteral("添加水印"));
+		ui.horizontalSlider_transparency->setVisible(true);
+		ui.pushButton_addmask->setText(QStringLiteral("删除水印"));
 	}
 	else {
 		m_Dst->SetWaterMaskFlag(DST_WATERMASK_NONE);
@@ -380,14 +377,17 @@ void CameraTools::slider_value_change()
 	m_Dst->SetTransparency(ui.horizontalSlider_transparency->value());
 }
 
-void CameraTools::get_unexpected_abort()
+void CameraTools::get_abort(int ret)
 {
-	WriteRecord(QStringLiteral("获取摄像头数据错误！"));
-	QString str = ui.pushButton_StartCapture->text();
-	if (str == QStringLiteral("停止录像")) {
-		m_Dst->SetSaveVideoFlag(DST_SAVEVIDEO_END);
-		WriteRecord(QStringLiteral("停止录像"));
-		ui.pushButton_StartCapture->setText(QStringLiteral("开始录像"));
+	QString str;
+	if (ret < 0) {
+		WriteRecord(QStringLiteral("获取摄像头数据错误！"));
+		str = ui.pushButton_StartCapture->text();
+		if (str == QStringLiteral("停止录像")) {
+			m_Dst->SetSaveVideoFlag(DST_SAVEVIDEO_END);
+			WriteRecord(QStringLiteral("停止录像"));
+			ui.pushButton_StartCapture->setText(QStringLiteral("开始录像"));
+		}
 	}
 	str = ui.pushButton_addmask->text();
 	if (str == QStringLiteral("删除水印")) {
@@ -398,4 +398,6 @@ void CameraTools::get_unexpected_abort()
 	}
 	UpdateControl(CT_STOPPREVIEW);
 	ui.pushButton_StartShow->setText(QStringLiteral("开始预览"));
+	WriteRecord(QStringLiteral("已停止预览"));
+//	delete m_Dst;
 }
