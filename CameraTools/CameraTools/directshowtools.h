@@ -66,8 +66,10 @@ public:
 	
 	int MP4OutputConfig(const std::string& output_name); // 存储为MP4文件的初始化配置
 	int FlushEncoder(unsigned int stream_index);		 // 在退出时将剩余的图像数据输出到文件
-	int CameraInputInit(PreviewCameraInfo cInfo, int &video_stream); // 获取摄像头图像数据的初始化函数
-	int GetImageData(int& video_stream, AVPacket& packet, SwsContext* &img_convert_ctx); // 获取摄像头图像数据
+	int CameraInputInit(PreviewCameraInfo cInfo,
+						int &video_stream);				 // 获取摄像头图像数据的初始化函数
+	int GetImageData(int& video_stream, AVPacket& packet, 
+					 SwsContext* &img_convert_ctx);		 // 获取摄像头图像数据
 	void AddWaterMask(cv::Mat& img);					 // 添加水印时的处理函数
 	void OpenOutputVideo();								 // 打开输出文件的编码器以及编码参数
 	void WriteVideoFrame(int &pts_num);					 // 向文件中写入编码后的视频数据

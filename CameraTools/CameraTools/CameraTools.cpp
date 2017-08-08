@@ -270,6 +270,7 @@ void CameraTools::button_startcapture_click()
 			m_Dst->SetSaveVideoFlag(DST_SAVEVIDEO_INIT);
 		}
 		WriteRecord(QStringLiteral("¿ªÊ¼Â¼Ïñ"));
+		WriteRecord(QStringLiteral("´æ´¢Î»ÖÃ£º")+file_path);
 		ui.pushButton_StartCapture->setText(QStringLiteral("Í£Ö¹Â¼Ïñ"));
 	}
 	else {
