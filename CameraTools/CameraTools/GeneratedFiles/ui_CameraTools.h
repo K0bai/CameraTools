@@ -13,11 +13,13 @@
 #include <QtWidgets/QAction>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QButtonGroup>
+#include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QGroupBox>
 #include <QtWidgets/QHeaderView>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QMainWindow>
+#include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QSlider>
@@ -31,6 +33,9 @@ QT_BEGIN_NAMESPACE
 class Ui_CameraToolsClass
 {
 public:
+    QAction *actionDirectShow;
+    QAction *actionMedia_Foundation;
+    QAction *actionVFW;
     QWidget *centralWidget;
     QGroupBox *groupBox;
     QComboBox *comboBox_Camera;
@@ -43,6 +48,8 @@ public:
     QComboBox *comboBox_DataResolution;
     QComboBox *comboBox_DataBit;
     QComboBox *comboBox_DataFps;
+    QLabel *label_13;
+    QComboBox *comboBox_DetectTools;
     QPushButton *pushButton_StartShow;
     QLabel *label_show_picture;
     QPushButton *pushButton_Grab;
@@ -53,7 +60,9 @@ public:
     QLabel *label_6;
     QComboBox *comboBox_ImageStyle;
     QLabel *label_7;
+    QCheckBox *checkBox_Filter;
     QMenuBar *menuBar;
+    QMenu *menu;
     QToolBar *mainToolBar;
     QStatusBar *statusBar;
 
@@ -61,48 +70,60 @@ public:
     {
         if (CameraToolsClass->objectName().isEmpty())
             CameraToolsClass->setObjectName(QStringLiteral("CameraToolsClass"));
-        CameraToolsClass->resize(1112, 603);
+        CameraToolsClass->resize(1146, 603);
+        actionDirectShow = new QAction(CameraToolsClass);
+        actionDirectShow->setObjectName(QStringLiteral("actionDirectShow"));
+        actionMedia_Foundation = new QAction(CameraToolsClass);
+        actionMedia_Foundation->setObjectName(QStringLiteral("actionMedia_Foundation"));
+        actionVFW = new QAction(CameraToolsClass);
+        actionVFW->setObjectName(QStringLiteral("actionVFW"));
         centralWidget = new QWidget(CameraToolsClass);
         centralWidget->setObjectName(QStringLiteral("centralWidget"));
         groupBox = new QGroupBox(centralWidget);
         groupBox->setObjectName(QStringLiteral("groupBox"));
-        groupBox->setGeometry(QRect(10, 10, 361, 141));
+        groupBox->setGeometry(QRect(10, 10, 361, 181));
         comboBox_Camera = new QComboBox(groupBox);
         comboBox_Camera->setObjectName(QStringLiteral("comboBox_Camera"));
-        comboBox_Camera->setGeometry(QRect(90, 20, 181, 22));
+        comboBox_Camera->setGeometry(QRect(90, 60, 241, 22));
         label = new QLabel(groupBox);
         label->setObjectName(QStringLiteral("label"));
-        label->setGeometry(QRect(30, 20, 51, 20));
+        label->setGeometry(QRect(20, 60, 51, 20));
         label_2 = new QLabel(groupBox);
         label_2->setObjectName(QStringLiteral("label_2"));
-        label_2->setGeometry(QRect(20, 60, 61, 16));
+        label_2->setGeometry(QRect(20, 100, 61, 16));
         label_3 = new QLabel(groupBox);
         label_3->setObjectName(QStringLiteral("label_3"));
-        label_3->setGeometry(QRect(180, 60, 51, 16));
+        label_3->setGeometry(QRect(180, 100, 51, 16));
         label_4 = new QLabel(groupBox);
         label_4->setObjectName(QStringLiteral("label_4"));
-        label_4->setGeometry(QRect(20, 100, 61, 16));
+        label_4->setGeometry(QRect(20, 140, 61, 16));
         label_5 = new QLabel(groupBox);
         label_5->setObjectName(QStringLiteral("label_5"));
-        label_5->setGeometry(QRect(190, 100, 31, 16));
+        label_5->setGeometry(QRect(190, 140, 31, 16));
         comboBox_DataType = new QComboBox(groupBox);
         comboBox_DataType->setObjectName(QStringLiteral("comboBox_DataType"));
-        comboBox_DataType->setGeometry(QRect(90, 60, 71, 22));
+        comboBox_DataType->setGeometry(QRect(90, 100, 71, 22));
         comboBox_DataResolution = new QComboBox(groupBox);
         comboBox_DataResolution->setObjectName(QStringLiteral("comboBox_DataResolution"));
-        comboBox_DataResolution->setGeometry(QRect(230, 60, 101, 22));
+        comboBox_DataResolution->setGeometry(QRect(230, 100, 101, 22));
         comboBox_DataBit = new QComboBox(groupBox);
         comboBox_DataBit->setObjectName(QStringLiteral("comboBox_DataBit"));
-        comboBox_DataBit->setGeometry(QRect(90, 100, 71, 22));
+        comboBox_DataBit->setGeometry(QRect(90, 140, 71, 22));
         comboBox_DataFps = new QComboBox(groupBox);
         comboBox_DataFps->setObjectName(QStringLiteral("comboBox_DataFps"));
-        comboBox_DataFps->setGeometry(QRect(230, 100, 101, 22));
+        comboBox_DataFps->setGeometry(QRect(230, 140, 101, 22));
+        label_13 = new QLabel(groupBox);
+        label_13->setObjectName(QStringLiteral("label_13"));
+        label_13->setGeometry(QRect(20, 20, 61, 16));
+        comboBox_DetectTools = new QComboBox(groupBox);
+        comboBox_DetectTools->setObjectName(QStringLiteral("comboBox_DetectTools"));
+        comboBox_DetectTools->setGeometry(QRect(90, 20, 241, 22));
         pushButton_StartShow = new QPushButton(centralWidget);
         pushButton_StartShow->setObjectName(QStringLiteral("pushButton_StartShow"));
         pushButton_StartShow->setGeometry(QRect(390, 10, 75, 23));
         label_show_picture = new QLabel(centralWidget);
         label_show_picture->setObjectName(QStringLiteral("label_show_picture"));
-        label_show_picture->setGeometry(QRect(390, 50, 671, 491));
+        label_show_picture->setGeometry(QRect(390, 50, 741, 491));
         label_show_picture->setAutoFillBackground(false);
         label_show_picture->setFrameShape(QFrame::Box);
         label_show_picture->setFrameShadow(QFrame::Raised);
@@ -122,20 +143,25 @@ public:
         pushButton_StartCapture->setGeometry(QRect(480, 10, 75, 23));
         textEdit_record = new QTextEdit(centralWidget);
         textEdit_record->setObjectName(QStringLiteral("textEdit_record"));
-        textEdit_record->setGeometry(QRect(10, 180, 361, 361));
+        textEdit_record->setGeometry(QRect(10, 220, 361, 321));
         label_6 = new QLabel(centralWidget);
         label_6->setObjectName(QStringLiteral("label_6"));
-        label_6->setGeometry(QRect(10, 160, 61, 16));
+        label_6->setGeometry(QRect(10, 200, 61, 16));
         comboBox_ImageStyle = new QComboBox(centralWidget);
         comboBox_ImageStyle->setObjectName(QStringLiteral("comboBox_ImageStyle"));
-        comboBox_ImageStyle->setGeometry(QRect(958, 10, 101, 22));
+        comboBox_ImageStyle->setGeometry(QRect(950, 10, 81, 22));
         label_7 = new QLabel(centralWidget);
         label_7->setObjectName(QStringLiteral("label_7"));
         label_7->setGeometry(QRect(890, 10, 61, 16));
+        checkBox_Filter = new QCheckBox(centralWidget);
+        checkBox_Filter->setObjectName(QStringLiteral("checkBox_Filter"));
+        checkBox_Filter->setGeometry(QRect(1060, 10, 71, 16));
         CameraToolsClass->setCentralWidget(centralWidget);
         menuBar = new QMenuBar(CameraToolsClass);
         menuBar->setObjectName(QStringLiteral("menuBar"));
-        menuBar->setGeometry(QRect(0, 0, 1112, 23));
+        menuBar->setGeometry(QRect(0, 0, 1146, 23));
+        menu = new QMenu(menuBar);
+        menu->setObjectName(QStringLiteral("menu"));
         CameraToolsClass->setMenuBar(menuBar);
         mainToolBar = new QToolBar(CameraToolsClass);
         mainToolBar->setObjectName(QStringLiteral("mainToolBar"));
@@ -143,6 +169,11 @@ public:
         statusBar = new QStatusBar(CameraToolsClass);
         statusBar->setObjectName(QStringLiteral("statusBar"));
         CameraToolsClass->setStatusBar(statusBar);
+
+        menuBar->addAction(menu->menuAction());
+        menu->addAction(actionDirectShow);
+        menu->addAction(actionMedia_Foundation);
+        menu->addAction(actionVFW);
 
         retranslateUi(CameraToolsClass);
         QObject::connect(pushButton_StartShow, SIGNAL(clicked()), CameraToolsClass, SLOT(button_startshow_click()));
@@ -152,6 +183,8 @@ public:
         QObject::connect(horizontalSlider_transparency, SIGNAL(valueChanged(int)), CameraToolsClass, SLOT(slider_value_change()));
         QObject::connect(pushButton_StartCapture, SIGNAL(clicked()), CameraToolsClass, SLOT(button_startcapture_click()));
         QObject::connect(comboBox_ImageStyle, SIGNAL(currentIndexChanged(int)), CameraToolsClass, SLOT(combobox_imagestyle_change()));
+        QObject::connect(comboBox_DetectTools, SIGNAL(currentIndexChanged(int)), CameraToolsClass, SLOT(combobox_detecttools_change()));
+        QObject::connect(checkBox_Filter, SIGNAL(clicked()), CameraToolsClass, SLOT(checkbox_filter()));
 
         QMetaObject::connectSlotsByName(CameraToolsClass);
     } // setupUi
@@ -159,12 +192,16 @@ public:
     void retranslateUi(QMainWindow *CameraToolsClass)
     {
         CameraToolsClass->setWindowTitle(QApplication::translate("CameraToolsClass", "CameraTools", 0));
+        actionDirectShow->setText(QApplication::translate("CameraToolsClass", "DirectShow", 0));
+        actionMedia_Foundation->setText(QApplication::translate("CameraToolsClass", "Media Foundation", 0));
+        actionVFW->setText(QApplication::translate("CameraToolsClass", "VFW", 0));
         groupBox->setTitle(QApplication::translate("CameraToolsClass", "\346\221\204\345\203\217\345\244\264\344\277\241\346\201\257", 0));
         label->setText(QApplication::translate("CameraToolsClass", "\346\221\204\345\203\217\345\244\264\357\274\232", 0));
         label_2->setText(QApplication::translate("CameraToolsClass", "\346\225\260\346\215\256\347\261\273\345\236\213\357\274\232", 0));
         label_3->setText(QApplication::translate("CameraToolsClass", "\345\210\206\350\276\250\347\216\207\357\274\232", 0));
         label_4->setText(QApplication::translate("CameraToolsClass", "\345\233\276\345\203\217\344\275\215\346\267\261\357\274\232", 0));
         label_5->setText(QApplication::translate("CameraToolsClass", "\345\270\247\347\216\207\357\274\232", 0));
+        label_13->setText(QApplication::translate("CameraToolsClass", "\346\243\200\346\265\213\345\267\245\345\205\267\357\274\232", 0));
         pushButton_StartShow->setText(QApplication::translate("CameraToolsClass", "\345\274\200\345\247\213\351\242\204\350\247\210", 0));
         label_show_picture->setText(QApplication::translate("CameraToolsClass", "\346\230\276\347\244\272\345\233\276\347\211\207", 0));
         pushButton_Grab->setText(QApplication::translate("CameraToolsClass", "\346\212\223\346\213\215", 0));
@@ -172,6 +209,8 @@ public:
         pushButton_StartCapture->setText(QApplication::translate("CameraToolsClass", "\345\274\200\345\247\213\345\275\225\345\203\217", 0));
         label_6->setText(QApplication::translate("CameraToolsClass", "\346\223\215\344\275\234\350\256\260\345\275\225\357\274\232", 0));
         label_7->setText(QApplication::translate("CameraToolsClass", "\345\233\276\345\203\217\351\243\216\346\240\274\357\274\232", 0));
+        checkBox_Filter->setText(QApplication::translate("CameraToolsClass", "\345\231\252\347\202\271\344\274\230\345\214\226", 0));
+        menu->setTitle(QApplication::translate("CameraToolsClass", "\346\243\200\346\265\213\345\267\245\345\205\267", 0));
     } // retranslateUi
 
 };

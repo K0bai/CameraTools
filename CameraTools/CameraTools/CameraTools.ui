@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1112</width>
+    <width>1146</width>
     <height>603</height>
    </rect>
   </property>
@@ -20,7 +20,7 @@
       <x>10</x>
       <y>10</y>
       <width>361</width>
-      <height>141</height>
+      <height>181</height>
      </rect>
     </property>
     <property name="title">
@@ -30,8 +30,8 @@
      <property name="geometry">
       <rect>
        <x>90</x>
-       <y>20</y>
-       <width>181</width>
+       <y>60</y>
+       <width>241</width>
        <height>22</height>
       </rect>
      </property>
@@ -39,8 +39,8 @@
     <widget class="QLabel" name="label">
      <property name="geometry">
       <rect>
-       <x>30</x>
-       <y>20</y>
+       <x>20</x>
+       <y>60</y>
        <width>51</width>
        <height>20</height>
       </rect>
@@ -53,7 +53,7 @@
      <property name="geometry">
       <rect>
        <x>20</x>
-       <y>60</y>
+       <y>100</y>
        <width>61</width>
        <height>16</height>
       </rect>
@@ -66,7 +66,7 @@
      <property name="geometry">
       <rect>
        <x>180</x>
-       <y>60</y>
+       <y>100</y>
        <width>51</width>
        <height>16</height>
       </rect>
@@ -79,7 +79,7 @@
      <property name="geometry">
       <rect>
        <x>20</x>
-       <y>100</y>
+       <y>140</y>
        <width>61</width>
        <height>16</height>
       </rect>
@@ -92,7 +92,7 @@
      <property name="geometry">
       <rect>
        <x>190</x>
-       <y>100</y>
+       <y>140</y>
        <width>31</width>
        <height>16</height>
       </rect>
@@ -105,7 +105,7 @@
      <property name="geometry">
       <rect>
        <x>90</x>
-       <y>60</y>
+       <y>100</y>
        <width>71</width>
        <height>22</height>
       </rect>
@@ -115,7 +115,7 @@
      <property name="geometry">
       <rect>
        <x>230</x>
-       <y>60</y>
+       <y>100</y>
        <width>101</width>
        <height>22</height>
       </rect>
@@ -125,7 +125,7 @@
      <property name="geometry">
       <rect>
        <x>90</x>
-       <y>100</y>
+       <y>140</y>
        <width>71</width>
        <height>22</height>
       </rect>
@@ -135,8 +135,31 @@
      <property name="geometry">
       <rect>
        <x>230</x>
-       <y>100</y>
+       <y>140</y>
        <width>101</width>
+       <height>22</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_13">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>20</y>
+       <width>61</width>
+       <height>16</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>检测工具：</string>
+     </property>
+    </widget>
+    <widget class="QComboBox" name="comboBox_DetectTools">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>20</y>
+       <width>241</width>
        <height>22</height>
       </rect>
      </property>
@@ -160,7 +183,7 @@
      <rect>
       <x>390</x>
       <y>50</y>
-      <width>671</width>
+      <width>741</width>
       <height>491</height>
      </rect>
     </property>
@@ -236,9 +259,9 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>180</y>
+      <y>220</y>
       <width>361</width>
-      <height>361</height>
+      <height>321</height>
      </rect>
     </property>
    </widget>
@@ -246,7 +269,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>160</y>
+      <y>200</y>
       <width>61</width>
       <height>16</height>
      </rect>
@@ -258,9 +281,9 @@
    <widget class="QComboBox" name="comboBox_ImageStyle">
     <property name="geometry">
      <rect>
-      <x>958</x>
+      <x>950</x>
       <y>10</y>
-      <width>101</width>
+      <width>81</width>
       <height>22</height>
      </rect>
     </property>
@@ -278,16 +301,38 @@
      <string>图像风格：</string>
     </property>
    </widget>
+   <widget class="QCheckBox" name="checkBox_Filter">
+    <property name="geometry">
+     <rect>
+      <x>1060</x>
+      <y>10</y>
+      <width>71</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>噪点优化</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1112</width>
+     <width>1146</width>
      <height>23</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menu">
+    <property name="title">
+     <string>检测工具</string>
+    </property>
+    <addaction name="actionDirectShow"/>
+    <addaction name="actionMedia_Foundation"/>
+    <addaction name="actionVFW"/>
+   </widget>
+   <addaction name="menu"/>
   </widget>
   <widget class="QToolBar" name="mainToolBar">
    <attribute name="toolBarArea">
@@ -298,6 +343,21 @@
    </attribute>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
+  <action name="actionDirectShow">
+   <property name="text">
+    <string>DirectShow</string>
+   </property>
+  </action>
+  <action name="actionMedia_Foundation">
+   <property name="text">
+    <string>Media Foundation</string>
+   </property>
+  </action>
+  <action name="actionVFW">
+   <property name="text">
+    <string>VFW</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <resources>
@@ -343,8 +403,8 @@
    <slot>combobox_camera_change()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>207</x>
-     <y>72</y>
+     <x>217</x>
+     <y>112</y>
     </hint>
     <hint type="destinationlabel">
      <x>227</x>
@@ -416,6 +476,38 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>comboBox_DetectTools</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>CameraToolsClass</receiver>
+   <slot>combobox_detecttools_change()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>312</x>
+     <y>71</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>352</x>
+     <y>39</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>checkBox_Filter</sender>
+   <signal>clicked()</signal>
+   <receiver>CameraToolsClass</receiver>
+   <slot>checkbox_filter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1089</x>
+     <y>54</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1052</x>
+     <y>61</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>button_startshow_click()</slot>
@@ -425,5 +517,7 @@
   <slot>slider_value_change()</slot>
   <slot>button_startcapture_click()</slot>
   <slot>combobox_imagestyle_change()</slot>
+  <slot>combobox_detecttools_change()</slot>
+  <slot>checkbox_filter()</slot>
  </slots>
 </ui>

@@ -3,8 +3,12 @@
 
 #include <QtWidgets/QMainWindow>
 #include "ui_CameraTools.h"
-#include "directshowtools.h"
-#include "cameraconfig.h"
+#include <exception>
+#include "DataProcess.h"
+#include "CameraDetectTools.h"
+#include "DirectShowTools.h"
+#include "VFWTools.h"
+#include "MediaFoundationTools.h"
 #include "FreeImage.h"
 
 // 更新控件相关参数
@@ -17,16 +21,28 @@
 #define CT_WATERMASK_MAX_HEIGHT 200
 #define CT_WATERMASK_MIN_WIDTH 200
 
+// 摄像头检测工具相关参数
+#define  CT_DETECTTOOLS_DS 0
+#define  CT_DETECTTOOLS_MF 1
+#define  CT_DETECTTOOLS_VFW 2
+
+// 界面是否进行绘图
+#define  CT_ISPAINTING_NO 0
+#define  CT_ISPAINTING_YES 1
+
+
 class CameraTools : public QMainWindow
 {
 	Q_OBJECT
 
 public:
 	CameraTools(QWidget *parent = Q_NULLPTR);
-	void DetectCamera();					// 用于检测系统中可以使用的摄像头
+	void DetectCamera();	// 用于检测系统中可以使用的摄像头
 	void WriteRecord(QString msg);			// 输出日志记录
 	void UpdateControl(int flag);			// 更新界面控件
-	void ShowCameraInfo(std::vector<CameraDeviceInfo>& camera_info, int index); // 用于展示检测出的摄像头的具体数据
+	void ShowCameraInfo(const std::vector<CameraDeviceInfo>& camera_info,
+						const int& index);  // 用于展示检测出的摄像头的具体数据
+	void StartPreview(DataProcess* pDP);
 	PreviewCameraInfo GetCameraParam();		// 得到从界面设置的摄像头参数
 
 	/*
@@ -37,8 +53,8 @@ public:
 	void BitToMat(FIBITMAP* fiBmp, const FREE_IMAGE_FORMAT &fif,
 					 cv::Mat& gifImg, cv::Mat& maskImg);
 	int GifToMat(std::vector<cv::Mat>& gifImgs, std::vector<cv::Mat>& maskImgs, 
-				const char* filename);
-	int IsWaterMaskSizeOk(int height, int width);	// 用于判断添加水印大小是否合法
+				 std::string filename);
+	int IsWaterMaskSizeOk(const int& height, const int& width);	// 用于判断添加水印大小是否合法
 
 protected:
 	bool nativeEvent(const QByteArray &eventType,
@@ -46,9 +62,18 @@ protected:
 
 private:
 	Ui::CameraToolsClass ui;
-	DirectShowTools *m_Dst;
+	DataProcess *m_Dst;
+	CameraDetectTools *pCDT_DS;
+	CameraDetectTools *pCDT_MF;
+	CameraDetectTools *pCDT_VFW;
+	CameraDetectToolsInterface* pCDTI_DS;
+	CameraDetectToolsInterface* pCDTI_MF;
+	CameraDetectToolsInterface* pCDTI_VFW;
+
+	int m_DetectTools;
 	bool b_CameraInitState;
 	int m_CaptureState;
+	int m_IsPainting;
 	std::vector<CameraDeviceInfo> m_CameraList;
 
 private slots:
@@ -59,8 +84,10 @@ private slots:
 	void paint_img();					// 接收绘制图像的消息
 	void combobox_camera_change();		// 接收摄像机列表索引变化事件
 	void combobox_imagestyle_change();	// 接收图像风格列表索引变化事件
+	void combobox_detecttools_change(); // 接收摄像头检测工具列表索引变化事件
 	void slider_value_change();			// 接收水印透明度滑块值变化事件
-	void get_abort(int);				// 接收终止预览的消息
+	void get_abort(int msg);			// 接收终止预览的消息
+	void checkbox_filter();				// 接收噪点优化的消息
 };
 
 #endif

@@ -65,9 +65,9 @@ void AddCameraInfo(CameraDeviceInfo &camera_info, const std::string &data_type,
 }
 */
 
-CameraDeviceInfo CameraConfig::GetCameraDeviceInfo(IMoniker* pMoniker)
+CameraDeviceInfo0 CameraConfig::GetCameraDeviceInfo(IMoniker* pMoniker)
 {
-	CameraDeviceInfo camera_info;
+	CameraDeviceInfo0 camera_info;
 	HRESULT hr = NULL;
 	IBaseFilter *pFilter;
 	hr = pMoniker->BindToObject(NULL, NULL, IID_IBaseFilter, (void**)&pFilter);
@@ -95,7 +95,7 @@ CameraDeviceInfo CameraConfig::GetCameraDeviceInfo(IMoniker* pMoniker)
 		}
 
 		IEnumMediaTypes *mtEnum = NULL;
-		AM_MEDIA_TYPE   *mt = NULL;
+		AM_MEDIA_TYPE *mt = NULL;
 		if (FAILED(pin->EnumMediaTypes(&mtEnum))) {
 			break;
 		}
@@ -134,9 +134,9 @@ CameraDeviceInfo CameraConfig::GetCameraDeviceInfo(IMoniker* pMoniker)
 	return camera_info;
 }
 
-std::vector<CameraDeviceInfo> CameraConfig::ListCameraDevice()
+std::vector<CameraDeviceInfo0> CameraConfig::ListCameraDevice()
 {
-	std::vector<CameraDeviceInfo> device_list;
+	std::vector<CameraDeviceInfo0> device_list;
 	ICreateDevEnum *pDevEnum = NULL;
 	IEnumMoniker *pEnum = NULL;
 	HRESULT hr = CoInitialize(0);
@@ -171,7 +171,7 @@ std::vector<CameraDeviceInfo> CameraConfig::ListCameraDevice()
 			hr = pPropBag->Read(L"FriendlyName", &var_name, 0);
 		}
 		if (SUCCEEDED(hr)) {
-			CameraDeviceInfo temp_camera_device_info;
+			CameraDeviceInfo0 temp_camera_device_info;
 			char display_name[1024];
 			WideCharToMultiByte(CP_ACP, 0, var_name.bstrVal, -1, 
 				display_name, 1024, "", NULL);

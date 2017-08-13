@@ -4,6 +4,7 @@
 #include <qfiledialog.h>
 #include <dbt.h>
 
+
 CameraTools::CameraTools(QWidget *parent)
 	: QMainWindow(parent)
 {
@@ -11,15 +12,31 @@ CameraTools::CameraTools(QWidget *parent)
 
 	b_CameraInitState = false;
 	m_CaptureState = CT_STOPPREVIEW;
+	m_DetectTools = CT_DETECTTOOLS_DS;
+	m_IsPainting = CT_ISPAINTING_YES;
+
+	pCDT_DS = new DirectShowTools;
+	pCDT_MF = new MediaFoundationTools;
+	pCDT_VFW = new VFWTools;
+	pCDTI_DS = new CameraDetectToolsInterface(pCDT_DS);
+	pCDTI_MF = new CameraDetectToolsInterface(pCDT_MF);
+	pCDTI_VFW = new CameraDetectToolsInterface(pCDT_VFW);
+
 	ui.horizontalSlider_transparency->setMinimum(0);
 	ui.horizontalSlider_transparency->setMaximum(100);
 	ui.horizontalSlider_transparency->setValue(0);
+
 	ui.comboBox_ImageStyle->addItems((QStringList)QStringLiteral("正常"));
 	ui.comboBox_ImageStyle->addItems((QStringList)QStringLiteral("黑白"));
 	ui.comboBox_ImageStyle->addItems((QStringList)QStringLiteral("油画"));
 	ui.comboBox_ImageStyle->setCurrentIndex(0);
-	
-	DetectCamera();		// 初始化时直接检测可用摄像头
+
+	ui.comboBox_DetectTools->addItems((QStringList)"DirectShow");
+	ui.comboBox_DetectTools->addItems((QStringList)"Media Foundation");
+//	ui.comboBox_DetectTools->addItems((QStringList)"VFW");
+	ui.comboBox_DetectTools->setCurrentIndex(0);
+
+	DetectCamera();		// 初始化时默认使用DirectShow检测可用摄像头
 	UpdateControl(CT_STOPPREVIEW);
 }
 
@@ -38,6 +55,7 @@ void CameraTools::UpdateControl(int flag)
 		ui.comboBox_DataFps->setDisabled(true);
 		ui.comboBox_DataResolution->setDisabled(true);
 		ui.comboBox_DataType->setDisabled(true);
+		ui.comboBox_DetectTools->setDisabled(true);
 
 		ui.pushButton_addmask->setEnabled(true);
 		ui.pushButton_Grab->setEnabled(true);
@@ -52,6 +70,7 @@ void CameraTools::UpdateControl(int flag)
 		ui.comboBox_DataFps->setEnabled(true);
 		ui.comboBox_DataResolution->setEnabled(true);
 		ui.comboBox_DataType->setEnabled(true);
+		ui.comboBox_DetectTools->setEnabled(true);
 
 		ui.pushButton_addmask->setDisabled(true);
 		ui.pushButton_Grab->setDisabled(true);
@@ -67,8 +86,21 @@ void CameraTools::DetectCamera()
 	b_CameraInitState = true;
 	m_CameraList.clear();
 	ui.comboBox_Camera->clear();
-	CameraConfig cc;
-	m_CameraList = cc.ListCameraDevice();
+
+	switch (m_DetectTools)
+	{
+	case CT_DETECTTOOLS_DS:
+		m_CameraList = pCDTI_DS->ListDevice();
+		break;
+	case CT_DETECTTOOLS_MF:
+		m_CameraList = pCDTI_MF->ListDevice();
+		break;
+	case CT_DETECTTOOLS_VFW:
+		m_CameraList = pCDTI_VFW->ListDevice();
+		break;
+	default:
+		break;
+	}
 
 	if (m_CameraList.size() == 0) {
 		b_CameraInitState = false;
@@ -84,7 +116,7 @@ void CameraTools::DetectCamera()
 	b_CameraInitState = false;
 }
 
-void CameraTools::ShowCameraInfo(std::vector<CameraDeviceInfo>& camera_info, int index)
+void CameraTools::ShowCameraInfo(const std::vector<CameraDeviceInfo>& camera_info,const int& index)
 {
 	ui.comboBox_DataFps->clear();
 	ui.comboBox_DataType->clear();
@@ -116,6 +148,27 @@ void CameraTools::ShowCameraInfo(std::vector<CameraDeviceInfo>& camera_info, int
 	}
 }
 
+void CameraTools::StartPreview(DataProcess * pDP)
+{
+	PreviewCameraInfo cInfo = GetCameraParam();
+	pDP->SetCameraInfo(cInfo);
+	switch (m_DetectTools)
+	{
+	case CT_DETECTTOOLS_DS:
+		pDP->SetCameraToolsInterface(pCDTI_DS);
+		break;
+	case CT_DETECTTOOLS_MF:
+		pDP->SetCameraToolsInterface(pCDTI_MF);
+		break;
+	case CT_DETECTTOOLS_VFW:
+		pDP->SetCameraToolsInterface(pCDTI_VFW);
+		break;
+	default:
+		break;
+	}
+	pDP->start();
+}
+
 PreviewCameraInfo CameraTools::GetCameraParam()
 {
 	PreviewCameraInfo cInfo;
@@ -128,7 +181,7 @@ PreviewCameraInfo CameraTools::GetCameraParam()
 	return cInfo;
 }
 
-int CameraTools::IsWaterMaskSizeOk(int height, int width)
+int CameraTools::IsWaterMaskSizeOk(const int& height, const int& width)
 {
 	if (height > CT_WATERMASK_MAX_HEIGHT ||
 		width > CT_WATERMASK_MIN_WIDTH) {
@@ -160,13 +213,14 @@ void CameraTools::BitToMat(FIBITMAP* fiBmp, const FREE_IMAGE_FORMAT &fif,
 	}
 }
 
-int CameraTools::GifToMat(std::vector<cv::Mat>& gifImgs, std::vector<cv::Mat>& maskImgs, 
-						  const char* filename)
+int CameraTools::GifToMat(std::vector<cv::Mat>& gifImgs, 
+						  std::vector<cv::Mat>& maskImgs, 
+						  std::string filename)
 {
 	FreeImage_Initialise(); 
 	FREE_IMAGE_FORMAT fif = FIF_GIF;
-	FIBITMAP* fiBmp1 = FreeImage_Load(fif, filename, GIF_DEFAULT);
-	FIMULTIBITMAP * fiBmp = FreeImage_OpenMultiBitmap(fif, filename, 0, 1, 0, GIF_PLAYBACK);
+	FIBITMAP* fiBmp1 = FreeImage_Load(fif, filename.c_str(), GIF_DEFAULT);
+	FIMULTIBITMAP * fiBmp = FreeImage_OpenMultiBitmap(fif, filename.c_str(), 0, 1, 0, GIF_PLAYBACK);
 
 	int num = FreeImage_GetPageCount(fiBmp);
 	for (int i = 0; i < num; i++) {
@@ -217,24 +271,48 @@ bool CameraTools::nativeEvent(const QByteArray &eventType, void *message, long *
 
 void CameraTools::paint_img()
 {
-	QImage src_img;
-	m_Dst->GetImageBuffer(src_img);
-	ui.label_show_picture->resize(src_img.size());
-	ui.label_show_picture->setPixmap(QPixmap::fromImage(src_img));
+	cv::Mat img;
+	QImage Qimg;
+	m_Dst->GetShowImageBuffer(img);
+
+	if (m_Dst->GetImageStyle() == DP_IMAGESTYLE_GRAY) {
+		Qimg = QImage(img.cols, img.rows, QImage::Format_Indexed8);
+		Qimg = QImage(img.cols, img.rows, QImage::Format_Indexed8);
+		Qimg.setColorCount(256);
+		for (int i = 0; i < 256; i++)
+		{
+			Qimg.setColor(i, qRgb(i, i, i));
+		}
+		uchar *pSrc = img.data;
+		for (int row = 0; row < img.rows; row++)
+		{
+			uchar *pDest = Qimg.scanLine(row);
+			memcpy(pDest, pSrc, img.cols);
+			pSrc += img.step;
+		}
+	}
+	else {
+		Qimg = QImage((uint8_t*)(img.data), img.cols,
+			img.rows, img.cols*img.channels(), QImage::Format_RGB888);
+	}
+	ui.label_show_picture->resize(Qimg.size());
+	QPixmap tempImg = QPixmap::fromImage(Qimg);
+	ui.label_show_picture->setPixmap(tempImg);
 }
 
 void CameraTools::button_startshow_click()
 {
+///	VFWTools vt;
+//	vt.ListCameraDevice();
+	
 	QString str = ui.pushButton_StartShow->text();
 	if (str == QStringLiteral("开始预览")) {
-		m_Dst = new DirectShowTools();
+		m_Dst = new DataProcess();
 		connect(m_Dst, SIGNAL(SendUpdataImgMsg()), this,
 			SLOT(paint_img()), Qt::QueuedConnection);
 		connect(m_Dst, SIGNAL(SendAbort(int)), this,
 			SLOT(get_abort(int)), Qt::QueuedConnection);
-		PreviewCameraInfo cInfo = GetCameraParam();
-		m_Dst->SetCameraInfo(cInfo);
-		m_Dst->start();
+		StartPreview(m_Dst);
 		WriteRecord(QStringLiteral("开始预览"));
 		m_CaptureState = CT_STARTPREVIEW;
 		UpdateControl(CT_STARTPREVIEW);
@@ -260,21 +338,23 @@ void CameraTools::button_startcapture_click()
 {
 	QString str = ui.pushButton_StartCapture->text();
 	if (str == QStringLiteral("开始录像")) {
+		m_IsPainting = CT_ISPAINTING_NO;
 		QString file_path = QFileDialog::getExistingDirectory(this,
 			QStringLiteral("请选择文件保存路径"), "./");
+		m_IsPainting = CT_ISPAINTING_YES;
 		if (file_path.isEmpty()) {
 			return;
 		}
 		else {
 			m_Dst->SetSaveVideoPath(file_path.toStdString());
-			m_Dst->SetSaveVideoFlag(DST_SAVEVIDEO_INIT);
+			m_Dst->SetSaveVideoFlag(DP_SAVEVIDEO_INIT);
 		}
 		WriteRecord(QStringLiteral("开始录像"));
 		WriteRecord(QStringLiteral("存储位置：")+file_path);
 		ui.pushButton_StartCapture->setText(QStringLiteral("停止录像"));
 	}
 	else {
-		m_Dst->SetSaveVideoFlag(DST_SAVEVIDEO_END);
+		m_Dst->SetSaveVideoFlag(DP_SAVEVIDEO_END);
 		WriteRecord(QStringLiteral("停止录像"));
 		ui.pushButton_StartCapture->setText(QStringLiteral("开始录像"));
 	}
@@ -283,9 +363,9 @@ void CameraTools::button_startcapture_click()
 
 void CameraTools::button_grab_click()
 {
-	if (m_Dst->GetGrabImgFlag() == DST_GRAB_READY) {
+	if (m_Dst->GetGrabImgFlag() == DP_GRAB_READY) {
 		WriteRecord(QStringLiteral("抓拍"));
-		m_Dst->SetGrabImgFlag(DST_GRAB_PROCESSING);
+		m_Dst->SetGrabImgFlag(DP_GRAB_PROCESSING);
 	}
 }
 
@@ -293,12 +373,14 @@ void CameraTools::button_addmask_click()
 {
 	QString str = ui.pushButton_addmask->text();
 	if (str == QStringLiteral("添加水印")) {
+		m_IsPainting = CT_ISPAINTING_NO;
 		QString path = QFileDialog::getOpenFileName(this,
 			QStringLiteral("选择添加的水印图像"),
 			".",
 			tr("Image Files(*.gif *.jpg *.png)"));
+		m_IsPainting = CT_ISPAINTING_YES;
 		if (path.length() == 0) {
-			m_Dst->SetWaterMaskFlag(DST_WATERMASK_NONE);
+			m_Dst->SetWaterMaskFlag(DP_WATERMASK_NONE);
 			return;
 		}
 		char* filepath;
@@ -316,7 +398,7 @@ void CameraTools::button_addmask_click()
 			}
 			m_Dst->SetWaterMaskGifImg(tempGif);
 			m_Dst->SetMaskGifImg(tempMask);
-			m_Dst->SetWaterMaskFlag(DST_WATERMASK_GIF);
+			m_Dst->SetWaterMaskFlag(DP_WATERMASK_GIF);
 		}
 		else {
 			cv::Mat srcImg, maskImg;
@@ -329,14 +411,14 @@ void CameraTools::button_addmask_click()
 			m_Dst->SetWaterMaskImg(srcImg);
 			maskImg = cv::imread(filepath, 0);
 			m_Dst->SetMaskImg(maskImg);
-			m_Dst->SetWaterMaskFlag(DST_WATERMASK_RGB);
+			m_Dst->SetWaterMaskFlag(DP_WATERMASK_RGB);
 		}
 		WriteRecord(QStringLiteral("添加水印"));
 		ui.horizontalSlider_transparency->setVisible(true);
 		ui.pushButton_addmask->setText(QStringLiteral("删除水印"));
 	}
 	else {
-		m_Dst->SetWaterMaskFlag(DST_WATERMASK_NONE);
+		m_Dst->SetWaterMaskFlag(DP_WATERMASK_NONE);
 		WriteRecord(QStringLiteral("删除水印"));
 		ui.horizontalSlider_transparency->setVisible(false);
 		ui.pushButton_addmask->setText(QStringLiteral("添加水印"));
@@ -359,18 +441,38 @@ void CameraTools::combobox_imagestyle_change()
 	switch (index)
 	{
 	case 0:
-		m_Dst->SetImageStyle(DST_IMAGESTYLE_NORMAL);
+		m_Dst->SetImageStyle(DP_IMAGESTYLE_NORMAL);
 		WriteRecord(QStringLiteral("选择正常风格"));
 		break;
 	case 1:
-		m_Dst->SetImageStyle(DST_IMAGESTYLE_GRAY);
+		m_Dst->SetImageStyle(DP_IMAGESTYLE_GRAY);
 		WriteRecord(QStringLiteral("选择黑白风格"));
 		break;
 	case 2:
-		m_Dst->SetImageStyle(DST_IMAGESTYLE_OIL);
+		m_Dst->SetImageStyle(DP_IMAGESTYLE_OIL);
 		WriteRecord(QStringLiteral("选择油画风格"));
 		break;
 	}
+}
+
+void CameraTools::combobox_detecttools_change()
+{
+	int index = ui.comboBox_DetectTools->currentIndex();
+	switch (index)
+	{
+	case 0:
+		m_DetectTools = CT_DETECTTOOLS_DS;
+		break;
+	case 1:
+		m_DetectTools = CT_DETECTTOOLS_MF;
+		break;
+	case 2:
+		m_DetectTools = CT_DETECTTOOLS_VFW;
+		break;
+	default:
+		break;
+	}
+	DetectCamera();
 }
 
 void CameraTools::slider_value_change()
@@ -385,14 +487,14 @@ void CameraTools::get_abort(int ret)
 		WriteRecord(QStringLiteral("获取摄像头数据错误！"));
 		str = ui.pushButton_StartCapture->text();
 		if (str == QStringLiteral("停止录像")) {
-			m_Dst->SetSaveVideoFlag(DST_SAVEVIDEO_END);
+			m_Dst->SetSaveVideoFlag(DP_SAVEVIDEO_END);
 			WriteRecord(QStringLiteral("停止录像"));
 			ui.pushButton_StartCapture->setText(QStringLiteral("开始录像"));
 		}
 	}
 	str = ui.pushButton_addmask->text();
 	if (str == QStringLiteral("删除水印")) {
-		m_Dst->SetWaterMaskFlag(DST_WATERMASK_NONE);
+		m_Dst->SetWaterMaskFlag(DP_WATERMASK_NONE);
 		WriteRecord(QStringLiteral("删除水印"));
 		ui.horizontalSlider_transparency->setVisible(false);
 		ui.pushButton_addmask->setText(QStringLiteral("添加水印"));
@@ -401,4 +503,14 @@ void CameraTools::get_abort(int ret)
 	ui.pushButton_StartShow->setText(QStringLiteral("开始预览"));
 	WriteRecord(QStringLiteral("已停止预览"));
 //	delete m_Dst;
+}
+
+void CameraTools::checkbox_filter()
+{
+	if (ui.checkBox_Filter->isChecked()) {
+		m_Dst->SetNoiseOptimizationFlag(DP_NOISEOPTIMIZATION_YES);
+	}
+	else {
+		m_Dst->SetNoiseOptimizationFlag(DP_NOISEOPTIMIZATION_NO);
+	}
 }
