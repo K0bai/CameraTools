@@ -6,13 +6,14 @@
 #include <mfapi.h>
 #include <mfidl.h>
 #include <mfreadwrite.h>
-#include "CameraDetectTools.h"
 
 extern "C" {
 #include "jpeglib.h"
 #include "jconfig.h"
 #include "turbojpeg.h"
 }
+
+#include "CameraDetectTools.h"
 
 // 用于判断从摄像头获取的数据类型，然后进行数据转换
 #define MFT_DATATYPE_RGB24 0
@@ -26,35 +27,58 @@ public:
 	MediaFoundationTools();
 	~MediaFoundationTools();
 
-	std::vector<CameraDeviceInfo> ListCameraDevice(); 
-	CameraDeviceInfo GetCameraDeviceInfo();  
-	cv::Mat GetFrameData();
-	int CameraInputInit(const PreviewCameraInfo& cInfo);
-	int DestoryInputParam();
-
-	int SetDevice(std::string name);
-
-	std::string WChar2String(LPCWSTR pwszSrc);
-	std::string ToFpsString(int framerate, int den);
-	std::string GetSubType(GUID guid);
-	GUID SetSubType(std::string type);
-	void SetDataInfo(const PreviewCameraInfo& cInfo);
-	void GetResolutionFromString(const std::string &res, int &width, int &height);
+	virtual int CameraInputInit(const PreviewCameraInfo& cInfo);
+	virtual std::vector<CameraDeviceInfo> ListCameraDevice(); 
+	virtual CameraDeviceInfo GetCameraDeviceInfo();
+	virtual cv::Mat GetFrameData();
+	virtual int DestoryInputParam();
 	
-	cv::Mat TransformRawDataToRGB(IMFSample *pSample, uint8_t* pRGBData, const int& width, const int& height);
-	bool YUV2_To_RGB24(uint8_t* pYUV, uint8_t* pRGBData, const int& width, const int& height);
-	bool I420_To_BGR24(uint8_t* pYUV420, uint8_t* pRGBData, const int& width, const int& height);
-	bool MJPG_To_BGR24(uint8_t* pMjpg, const int& srcSize, uint8_t* pRGBData);
+	
+
+	int GetDevice(std::string name);					// 打开UI界面中选择的名称的摄像头
+	std::string WChar2String(LPCWSTR pwszSrc);			// 将LPCWSTR类型的字符串转换成std::string类型
+	std::string ToFpsString(int framerate, int den);	// 得到帧率
+	std::string GetSubType(GUID guid);					// 得到GUID对应的数据类型
+	GUID GetSubType(std::string type);					// 设置摄像头输出的数据类型
+	void SetDataInfo(const PreviewCameraInfo& cInfo);	// 设置摄像头工作时的参数
+
+	void GetResolutionFromString(
+		const std::string &res, 
+		int &width, 
+		int &height);									// 将分辨率转换成int型的长和宽
+	
+	cv::Mat TransformRawDataToRGB(
+		IMFSample *pSample,
+		uint8_t* pRGBData, 
+		const int& width, 
+		const int& height);								// 将原始数据类型转换成RGB24格式
+
+	bool YUV2ToRGB24(
+		uint8_t* pYUV, 
+		uint8_t* pRGBData, 
+		const int& width, 
+		const int& height);								// 将YUV2格式的数据转换成RGB24格式
+
+	bool I420ToBGR24(
+		uint8_t* pYUV420, 
+		uint8_t* pRGBData,
+		const int& width, 
+		const int& height);								// 将I420格式的数据转换成RGB24格式
+
+	bool MJPGToBGR24(
+		uint8_t* pMjpg, 
+		const int& srcSize, 
+		uint8_t* pRGBData);								// 将MJPG格式的数据转换成RGB24格式
 	
 private:
-	IMFActivate **ppDevices; 
-	IMFAttributes *pAttributes;
-	IMFSourceReader* reader;
-	int m_DeviceIndex;
-	int m_Width;
-	int m_Height;
-	int m_DataTypeFlag;
-	cv::Mat m_FrameImg;
+	IMFActivate **m_ppDevices; 
+	IMFAttributes *m_pAttributes;
+	IMFSourceReader* m_pReader;
+	int m_deviceIndex;
+	int m_width;
+	int m_height;
+	int m_dataTypeFlag;
+	cv::Mat m_frameImg;
 };
 
 #endif

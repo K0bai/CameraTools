@@ -20,21 +20,23 @@ public:
 	DirectShowTools();
 	~DirectShowTools();
 
-	std::vector<CameraDeviceInfo> ListCameraDevice();	 
-	CameraDeviceInfo GetCameraDeviceInfo();			 
-	std::string GetSubType(GUID guid); 
-	cv::Mat GetFrameData();
-	int CameraInputInit(const PreviewCameraInfo& cInfo);
-	int DestoryInputParam();
+	virtual int CameraInputInit(const PreviewCameraInfo& cInfo);
+	virtual std::vector<CameraDeviceInfo> ListCameraDevice();	
+	virtual CameraDeviceInfo GetCameraDeviceInfo();
+	virtual cv::Mat GetFrameData();
+	virtual int DestoryInputParam();
+
+	std::string GetSubType(GUID guid);			// 得到摄像头设备的GUID对应的类型
+	
 
 private:
-	IMoniker *pMoniker;
-	AVCodecContext *m_InputCodecCtx;
-	AVFormatContext *m_InputFormatCtx;
-	AVFrame *m_InputFrame;
-	AVFrame *m_InputFrameRGB;
-	AVPacket packet;
-	int video_stream;
+	IMoniker *m_pMoniker;
+	AVCodecContext *m_inputCodecCtx;
+	AVFormatContext *m_inputFormatCtx;
+	AVFrame *m_inputFrame;
+	AVFrame *m_inputFrameRGB;
+	AVPacket m_packet;
+	int m_videoStream;
 };
 
 #endif

@@ -31,17 +31,15 @@ struct CameraDeviceInfo {
 	std::string friend_name;								 // 设备名称
 	std::set<std::string> data_type;						 // 设备所支持的输出数据类型
 	std::set<std::string, ClassCompareRes> data_resolution;  // 设备所支持的输出分辨率
-	std::set<std::string, ClassCompareOth> data_bit;		 // 设备所支持的输出数据位数
 	std::set<std::string, ClassCompareOth> data_fps;		 // 设备所支持的输出帧率
 };
 
 // 摄像头工作时的参数
 struct PreviewCameraInfo {
-	std::string name;
-	std::string type;
-	std::string resolution;
-	std::string bit;
-	std::string fps;
+	std::string name;			// 摄像头名称
+	std::string type;			// 摄像头工作时输出的数据类型
+	std::string resolution;		// 摄像头工作时的分辨率
+	std::string fps;			// 摄像头工作时的帧率
 };
 
 // 检测摄像头以及获取图像数据类
@@ -53,36 +51,6 @@ public:
 	virtual cv::Mat GetFrameData() = 0;									// 得到摄像头一帧的图像数据
 	virtual int CameraInputInit(const PreviewCameraInfo& cInfo) = 0;	// 配置摄像头及初始化
 	virtual int DestoryInputParam() = 0;								// 释放摄像头相关的参数		
-};
-
-class CameraDetectToolsInterface
-{
-public:
-	CameraDetectToolsInterface(CameraDetectTools *pCDT) : pCDTI(pCDT) {
-
-	}
-
-	std::vector<CameraDeviceInfo> ListDevice() {
-		return pCDTI->ListCameraDevice();
-	}
-
-	CameraDeviceInfo GetDeviceInfo() {
-		return pCDTI->GetCameraDeviceInfo();
-	}
-
-	cv::Mat GetFrameData() {
-		return pCDTI->GetFrameData();
-	}
-
-	int CameraInit(const PreviewCameraInfo& cInfo) {
-		return pCDTI->CameraInputInit(cInfo);
-	}
-
-	int DestoryInputParam() {
-		return pCDTI->DestoryInputParam();
-	}
-private:
-	CameraDetectTools *pCDTI;
 };
 
 #endif

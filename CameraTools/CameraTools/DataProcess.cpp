@@ -5,19 +5,23 @@
 
 DataProcess::DataProcess()
 {
-	m_PictureBuff = NULL;
-	m_VideoOutBuff = NULL;
-	m_WaterMaskFlag = DP_WATERMASK_NONE;
-	b_ThreadStop = false;
-	m_ShowIndex = 0;
-	m_Internal = 0;
-	m_Transparency = 0;
-	m_GrabImgFlag = DP_GRAB_READY;
-	m_SaveVideoFlag = DP_SAVEVIDEO_NONE;
-	m_ImageStyle = DP_IMAGESTYLE_NORMAL;
-	m_NoiseOptimizationFlag = DP_NOISEOPTIMIZATION_NO;
-	InitializeCriticalSection(&m_PreviewLock);
-	InitializeCriticalSection(&m_SaveBufferLock);
+	m_pictureBuff = NULL;
+	m_videoOutBuff = NULL;
+	m_waterMaskFlag = DP_WATERMASK_NONE;
+	b_threadStop = false;
+	m_showIndex = 0;
+	m_internal = 0;
+	m_transparency = 0;
+	m_grabImgFlag = DP_GRAB_READY;
+	m_saveVideoFlag = DP_SAVEVIDEO_NONE;
+	m_imageStyle = DP_IMAGESTYLE_NORMAL;
+	m_noiseOptimizationFlag = DP_NOISEOPTIMIZATION_NO;
+	m_saveVideoPath = "";
+	m_saveGrabImgPath = "";
+
+	InitializeCriticalSection(&m_previewLock);
+	InitializeCriticalSection(&m_saveBufferLock);
+
 	connect(this, SIGNAL(SendImageGrabMsg()), this,
 		SLOT(SaveGrabImage()), Qt::QueuedConnection);
 }
@@ -25,8 +29,8 @@ DataProcess::DataProcess()
 
 DataProcess::~DataProcess()
 {
-	DeleteCriticalSection(&m_PreviewLock);
-	DeleteCriticalSection(&m_SaveBufferLock);
+	DeleteCriticalSection(&m_previewLock);
+	DeleteCriticalSection(&m_saveBufferLock);
 	//	DestoryInputParam();
 	//	DestoryVideoParam();
 	FreeImgBuffer();
@@ -35,160 +39,202 @@ DataProcess::~DataProcess()
 
 void DataProcess::SetWaterMaskFlag(int flag)
 {
-	m_WaterMaskFlag = flag;
+	m_waterMaskFlag = flag;
 }
 
 void DataProcess::SetTransparency(int value)
 {
-	m_Transparency = value;
+	m_transparency = value;
 }
 
 void DataProcess::SetWaterMaskImg(cv::Mat img)
 {
-	m_WaterMaskImg = img;
+	m_waterMaskImg = img;
 }
 
 void DataProcess::SetMaskImg(cv::Mat img)
 {
-	m_MaskImg = img;
+	m_maskImg = img;
 }
 
 void DataProcess::SetWaterMaskGifImg(std::vector<cv::Mat> img)
 {
-	m_WaterMaskGifImg = img;
+	m_waterMaskGifImg = img;
 }
 void DataProcess::SetMaskGifImg(std::vector<cv::Mat> img)
 {
-	m_MaskGifImg = img;
+	m_maskGifImg = img;
 }
 
 void DataProcess::SetInternal(int num)
 {
-	m_Internal = num;
+	m_internal = num;
 }
 
 int DataProcess::GetInternal()
 {
-	return m_Internal;
+	return m_internal;
 }
 
 void DataProcess::SetGrabImgFlag(int flag)
 {
-	m_GrabImgFlag = flag;
+	m_grabImgFlag = flag;
 }
 
 int DataProcess::GetGrabImgFlag()
 {
-	return m_GrabImgFlag;
+	return m_grabImgFlag;
 }
 
 void DataProcess::SetSaveVideoFlag(int flag)
 {
-	m_SaveVideoFlag = flag;
+	m_saveVideoFlag = flag;
 }
 void DataProcess::SetNoiseOptimizationFlag(int flag)
 {
-	m_NoiseOptimizationFlag = flag;
+	m_noiseOptimizationFlag = flag;
 }
 int DataProcess::GetSaveVideoFlag()
 {
-	return m_SaveVideoFlag;
+	return m_saveVideoFlag;
 }
 
 void DataProcess::SetCameraInfo(PreviewCameraInfo cInfo)
 {
-	m_CameraInfo = cInfo;
+	m_cameraInfo = cInfo;
 }
+
 PreviewCameraInfo DataProcess::GetCameraInfo()
 {
-	return m_CameraInfo;
+	return m_cameraInfo;
 }
 
 void DataProcess::SetSaveVideoPath(std::string str)
 {
-	m_SaveVideoPath = str;
+	m_saveVideoPath = str;
 }
+
+void DataProcess::SetSaveGrabImgPath(std::string str)
+{
+	m_saveGrabImgPath = str;
+}
+
+void DataProcess::SetWaterMaskRect(QRect rect)
+{
+	m_waterMaskRect = rect;
+}
+
 std::string DataProcess::GetSaveVideoPath()
 {
-	return m_SaveVideoPath;
+	return m_saveVideoPath;
+}
+
+std::string DataProcess::GetSaveGrabImgPath()
+{
+	return m_saveGrabImgPath;
 }
 
 AVFormatContext * DataProcess::GetOutputFormatCtx()
 {
-	return m_OutputFormatCtx;
+	return m_outputFormatCtx;
 }
 
 AVFrame * DataProcess::GetOutputFrame()
 {
-	return m_OutputFrame;
+	return m_outputFrame;
 }
 
 void DataProcess::SetThreadStop(bool flag)
 {
-	b_ThreadStop = flag;
-}
-bool DataProcess::GetThreadStop()
-{
-	return b_ThreadStop;
-}
-void DataProcess::SetImageStyle(int flag)
-{
-	m_ImageStyle = flag;
+	b_threadStop = flag;
 }
 
-void DataProcess::SetCameraToolsInterface(CameraDetectToolsInterface * pCDTI)
+bool DataProcess::GetThreadStop()
 {
-	m_pCDTI = pCDTI;
+	return b_threadStop;
+}
+
+QRect DataProcess::GetWaterMaskRect()
+{
+	return m_waterMaskRect;
+}
+
+void DataProcess::SetImageStyle(int flag)
+{
+	m_imageStyle = flag;
+}
+
+void DataProcess::SetDataProcessPtr(CameraDetectTools * pCDT)
+{
+	m_pCDT = pCDT;
 }
 
 int DataProcess::GetImageStyle()
 {
-	return m_ImageStyle;
+	return m_imageStyle;
 }
 
 void DataProcess::DestoryVideoParam()
 {
-	if (m_OutputCodecCtx != NULL) {
-		avcodec_close(m_OutputCodecCtx);
+	if (m_outputCodecCtx != NULL) {
+		avcodec_close(m_outputCodecCtx);
 	}
-	if (m_OutputFormatCtx != NULL) {
-		avio_close(m_OutputFormatCtx->pb);
-		avformat_free_context(m_OutputFormatCtx);
+
+	if (m_outputFormatCtx != NULL) {
+		avio_close(m_outputFormatCtx->pb);
+		avformat_free_context(m_outputFormatCtx);
 	}
-	if (m_OutputFrame != NULL) {
-		av_free(m_OutputFrame);
+
+	if (m_outputFrame != NULL) {
+		av_free(m_outputFrame);
 	}
-	if (m_OutputVideoStream != NULL) {
-		if (m_OutputVideoStream) {
-			av_free(m_PictureBuff);
-			av_free(m_VideoOutBuff);
+
+	if (m_outputVideoStream != NULL) {
+		if (m_outputVideoStream) {
+			av_free(m_pictureBuff);
+			av_free(m_videoOutBuff);
 		}
 	}
 }
 
 void DataProcess::FreeImgBuffer()
 {
-	if (!m_WaterMaskImg.empty()) {
-		m_WaterMaskImg.release();
+	if (!m_waterMaskImg.empty()) {
+		m_waterMaskImg.release();
 	}
-	if (!m_MaskImg.empty()) {
-		m_MaskImg.release();
+
+	if (!m_maskImg.empty()) {
+		m_maskImg.release();
 	}
-	if (!m_GrabImgMat.empty()) {
-		m_GrabImgMat.release();
+
+	if (!m_grabImgMat.empty()) {
+		m_grabImgMat.release();
 	}
-	if (!m_WaterMaskGifImg.empty()) {
-		m_WaterMaskGifImg.clear();
+
+	if (!m_waterMaskGifImg.empty()) {
+		m_waterMaskGifImg.clear();
 	}
-	if (!m_MaskGifImg.empty()) {
-		m_MaskGifImg.empty();
+
+	if (!m_maskGifImg.empty()) {
+		m_maskGifImg.empty();
 	}
-	if (!m_ShowImageBuf.empty()) {
-		m_ShowImageBuf.empty();
+
+	if (!m_showImageBuf.empty()) {
+		m_showImageBuf.empty();
 	}
 }
 
-void DataProcess::GetResolutionFromString(const std::string & res, int & width, int & height)
+/*
+ * 将string型表示的分辨率分解成int型长和宽
+ * 参数：
+ *		res: 输入的待分解的字符串分辨率
+ *		width：得到的分辨率的宽度
+ *		height：得到的分辨率的长度
+ */
+void DataProcess::GetResolutionFromString(
+	const std::string & res, 
+	int & width, 
+	int & height)
 {
 	int index = res.find('x');
 	if (index == std::string::npos) {
@@ -198,10 +244,12 @@ void DataProcess::GetResolutionFromString(const std::string & res, int & width, 
 	height = std::atoi(res.substr(index + 1).c_str());
 }
 
-// 录像时的初始化配置函数
-// 参数1 录像文件存储名
-// 返回值小于0，则初始化失败
-// 返回值大于等于0，则初始化成功
+/*
+ * 录像时的初始化配置函数
+ * 参数：
+ *		cInfo: 录像文件的参数包括分辨率，帧率
+ * 返回值：小于0，则初始化失败；大于等于0，则初始化成功
+ */
 int DataProcess::MP4OutputConfig(const PreviewCameraInfo& cInfo)
 {
 	avdevice_register_all();
@@ -209,57 +257,71 @@ int DataProcess::MP4OutputConfig(const PreviewCameraInfo& cInfo)
 	av_register_all();
 	QDateTime time = QDateTime::currentDateTime();
 	QString str = time.toString("yyyyMMddhhmmsszzz") + ".mp4";
-	std::string output_name = m_SaveVideoPath + "/" + str.toStdString();
+	std::string output_name = m_saveVideoPath + "/" + str.toStdString();
 
-	avformat_alloc_output_context2(&m_OutputFormatCtx, NULL,
+	avformat_alloc_output_context2(&m_outputFormatCtx, NULL,
 		NULL, output_name.c_str());
-	if (!m_OutputFormatCtx) {
-		avformat_alloc_output_context2(&m_OutputFormatCtx,
+
+	if (!m_outputFormatCtx) {
+		avformat_alloc_output_context2(&m_outputFormatCtx,
 			NULL, "mpeg", output_name.c_str());
 	}
-	if (!m_OutputFormatCtx) {
+
+	if (!m_outputFormatCtx) {
 		return -1;
 	}
 
-	m_OutputFormatCtx->oformat->video_codec = CODEC_ID_H264;
-	m_OutputFormat = m_OutputFormatCtx->oformat;
+	m_outputFormatCtx->oformat->video_codec = CODEC_ID_H264;
+	m_outputFormat = m_outputFormatCtx->oformat;
 
-	m_OutputVideoStream = NULL;
-	if (m_OutputFormat->video_codec != CODEC_ID_NONE) {
-		m_OutputVideoStream = AddVideoStream(m_OutputFormat->video_codec,cInfo);
+	m_outputVideoStream = NULL;
+
+	if (m_outputFormat->video_codec != CODEC_ID_NONE) {
+		m_outputVideoStream = AddVideoStream(m_outputFormat->video_codec,cInfo);
 	}
 
-	if (m_OutputVideoStream) {
+	if (m_outputVideoStream) {
 		OpenOutputVideo();
 	}
 
-	if (!(m_OutputFormat->flags & AVFMT_NOFILE)) {
-		if (avio_open(&m_OutputFormatCtx->pb, output_name.c_str(), AVIO_FLAG_WRITE) < 0) {
+	if (!(m_outputFormat->flags & AVFMT_NOFILE)) {
+		if (avio_open(&m_outputFormatCtx->pb, output_name.c_str(), AVIO_FLAG_WRITE) < 0) {
 			return -1;
 		}
 	}
-	avformat_write_header(m_OutputFormatCtx, NULL);
+	avformat_write_header(m_outputFormatCtx, NULL);
 
-	m_OutputCodecCtx = m_OutputVideoStream->codec;
-	m_OutputFrame = av_frame_alloc();
-	m_VideoOutBuffSize = avpicture_get_size(m_OutputCodecCtx->pix_fmt,
-		m_OutputCodecCtx->width, m_OutputCodecCtx->height);
+	m_outputCodecCtx = m_outputVideoStream->codec;
+	m_outputFrame = av_frame_alloc();
+	m_videoOutBuffSize = avpicture_get_size(
+							m_outputCodecCtx->pix_fmt,
+							m_outputCodecCtx->width, 
+							m_outputCodecCtx->height);
 
-	m_PictureBuff = (uint8_t *)av_malloc(m_VideoOutBuffSize);
-	avpicture_fill((AVPicture *)m_OutputFrame, m_PictureBuff,
-		m_OutputCodecCtx->pix_fmt, m_OutputCodecCtx->width,
-		m_OutputCodecCtx->height);
-	m_VideoOutBuff = (uint8_t *)av_malloc(m_VideoOutBuffSize);
+	m_pictureBuff = (uint8_t *)av_malloc(m_videoOutBuffSize);
+
+	avpicture_fill(
+		(AVPicture *)m_outputFrame,
+		m_pictureBuff,
+		m_outputCodecCtx->pix_fmt, 
+		m_outputCodecCtx->width,
+		m_outputCodecCtx->height
+	);
+
+	m_videoOutBuff = (uint8_t *)av_malloc(m_videoOutBuffSize);
 
 	return 0;
 }
 
-// 修改自ffmpeg官方文档muxing.c
-// 输入参数即视频流编码方式
-// 返回配置好的AVStream*
-// 配置参数包括图像大小，帧率等常用视频编码参数
+/*
+ * 修改自ffmpeg官方文档muxing.c，
+ * 配置参数包括图像大小，帧率等常用视频编码参数
+ * 参数：
+ *		codec_id: 视频流编码类型
+ *		cInfo: 输出视频流的参数，包括分辨率，帧率
+ * 返回值：返回配置好的AVStream*， 若为NULL则配置失败
+ */
 AVStream* DataProcess::AddVideoStream(AVCodecID codec_id, const PreviewCameraInfo& cInfo)
-//	const int& width, const int& height, const int& fps)
 {
 	int width = 0, height = 0, fps = 0;
 	GetResolutionFromString(cInfo.resolution, width, height);
@@ -268,13 +330,13 @@ AVStream* DataProcess::AddVideoStream(AVCodecID codec_id, const PreviewCameraInf
 	AVStream *st;
 	AVCodec *codec;
 
-	st = avformat_new_stream(m_OutputFormatCtx, NULL);
+	st = avformat_new_stream(m_outputFormatCtx, NULL);
 	if (!st) {
 		return NULL;
 	}
 	c = st->codec;
 
-	/* find the video encoder */
+	// find the video encoder 
 	codec = avcodec_find_encoder(codec_id);
 	if (!codec) {
 		return NULL;
@@ -283,44 +345,51 @@ AVStream* DataProcess::AddVideoStream(AVCodecID codec_id, const PreviewCameraInf
 
 	c->codec_id = codec_id;
 
-	/* put sample parameters */
+	// put sample parameters
 	c->bit_rate = /*400000*/3000000;
-	/* resolution must be a multiple of two */
-	c->width = /*352*/width;
-	c->height = /*288*/height;
+
+	// resolution must be a multiple of two 
+	c->width = width;
+	c->height = height;
+
 	/* time base: this is the fundamental unit of time (in seconds) in terms
 	of which frame timestamps are represented. for fixed-fps content,
 	timebase should be 1/framerate and timestamp increments should be
 	identically 1. */
 	c->time_base.den = fps;
 	c->time_base.num = 1;
-	c->gop_size = 12; /* emit one intra frame every twelve frames at most */
+	c->gop_size = 12; // emit one intra frame every twelve frames at most 
 	c->pix_fmt = PIX_FMT_YUV420P;
 	if (c->codec_id == CODEC_ID_MPEG2VIDEO) {
-		/* just for testing, we also add B frames */
+
+		//just for testing, we also add B frames 
 		c->max_b_frames = 3;
 	}
 	if (c->codec_id == CODEC_ID_MPEG1VIDEO) {
+
 		/* Needed to avoid using macroblocks in which some coeffs overflow.
 		This does not happen with normal video, it just happens here as
 		the motion of the chroma plane does not match the luma plane. */
 		c->mb_decision = 2;
 	}
+
 	// some formats want stream headers to be separate
-	if (m_OutputFormatCtx->oformat->flags & AVFMT_GLOBALHEADER)
+	if (m_outputFormatCtx->oformat->flags & AVFMT_GLOBALHEADER)
 		c->flags |= CODEC_FLAG_GLOBAL_HEADER;
 
 	return st;
 }
 
-// 修改自ffmpeg官方文档muxing.c
-// 打开所配置的视频编码AVCodecContext
+/*
+ * 修改自ffmpeg官方文档muxing.c
+ * 打开所配置的视频编码AVCodecContext
+ */
 void DataProcess::OpenOutputVideo()
 {
 	AVCodec *codec;
 	AVCodecContext *c;
 
-	c = m_OutputVideoStream->codec;
+	c = m_outputVideoStream->codec;
 
 	/* find the video encoder */
 	codec = avcodec_find_encoder(c->codec_id);
@@ -331,33 +400,36 @@ void DataProcess::OpenOutputVideo()
 	av_dict_set(&param, "preset", "superfast", 0);
 	av_dict_set(&param, "tune", "zerolatency", 0);
 
-	/* open the codec */
+	// open the codec
 	if (avcodec_open2(c, codec, &param) < 0) {
 		return;
 	}
 }
 
-// 修改自ffmpeg官方文档muxing.c
-// 参数1 输入当前帧的显示时间戳
-// 可实现将当前帧进行编码并写入到文件中
+/*
+ * 修改自ffmpeg官方文档muxing.c
+ * 可实现将当前帧进行编码并写入到文件中
+ * 参数：
+ *		pts_num: 输入当前帧的显示时间戳
+ */
 void DataProcess::WriteVideoFrame(const int &pts_num)
 {
-	if (m_OutputFormatCtx->oformat->flags & AVFMT_RAWPICTURE) {
+	if (m_outputFormatCtx->oformat->flags & AVFMT_RAWPICTURE) {
 		AVPacket pkt;
 		av_init_packet(&pkt);
 
 		pkt.flags |= AV_PKT_FLAG_KEY;
-		pkt.stream_index = m_OutputVideoStream->index;
-		pkt.data = (uint8_t *)m_OutputFrame;
+		pkt.stream_index = m_outputVideoStream->index;
+		pkt.data = (uint8_t *)m_outputFrame;
 		pkt.size = sizeof(AVPicture);
 
-		av_interleaved_write_frame(m_OutputFormatCtx, &pkt);
+		av_interleaved_write_frame(m_outputFormatCtx, &pkt);
 	}
 	else {
 		int out_size = 0;
-		m_OutputFrame->pts = pts_num;
-		out_size = avcodec_encode_video(m_OutputVideoStream->codec,
-			m_VideoOutBuff, m_VideoOutBuffSize, m_OutputFrame);
+		m_outputFrame->pts = pts_num;
+		out_size = avcodec_encode_video(m_outputVideoStream->codec,
+			m_videoOutBuff, m_videoOutBuffSize, m_outputFrame);
 
 		if (out_size <= 0) {
 			return;
@@ -365,91 +437,99 @@ void DataProcess::WriteVideoFrame(const int &pts_num)
 		AVPacket pkt;
 		av_init_packet(&pkt);
 
-		if (m_OutputVideoStream->codec->coded_frame->pts != AV_NOPTS_VALUE) {
-			pkt.pts = av_rescale_q(m_OutputVideoStream->codec->coded_frame->pts,
-				m_OutputVideoStream->codec->time_base, m_OutputVideoStream->time_base);
+		if (m_outputVideoStream->codec->coded_frame->pts != AV_NOPTS_VALUE) {
+			pkt.pts = av_rescale_q(m_outputVideoStream->codec->coded_frame->pts,
+				m_outputVideoStream->codec->time_base, m_outputVideoStream->time_base);
 		}
-		if (m_OutputVideoStream->codec->coded_frame->key_frame) {
+
+		if (m_outputVideoStream->codec->coded_frame->key_frame) {
 			pkt.flags |= AV_PKT_FLAG_KEY;
 		}
-		pkt.stream_index = m_OutputVideoStream->index;
-		pkt.data = m_VideoOutBuff;
+		pkt.stream_index = m_outputVideoStream->index;
+		pkt.data = m_videoOutBuff;
 		pkt.size = out_size;
-		av_interleaved_write_frame(m_OutputFormatCtx, &pkt);
+		av_interleaved_write_frame(m_outputFormatCtx, &pkt);
 	}
 }
 
 int DataProcess::FlushEncoder(const int& stream_index)
 {
 	int ret;
-	int got_frame;
-	AVPacket enc_pkt;
-	if (!(m_OutputFormatCtx->streams[stream_index]->codec->codec->capabilities &
+	int gotFrame;
+	AVPacket encPkt;
+	if (!(m_outputFormatCtx->streams[stream_index]->codec->codec->capabilities &
 		CODEC_CAP_DELAY))
 		return 0;
+
 	while (1) {
-		enc_pkt.data = NULL;
-		enc_pkt.size = 0;
-		av_init_packet(&enc_pkt);
+		encPkt.data = NULL;
+		encPkt.size = 0;
+		av_init_packet(&encPkt);
 		ret = avcodec_encode_video2(
-			m_OutputFormatCtx->streams[stream_index]->codec,
-			&enc_pkt, NULL, &got_frame);
+				m_outputFormatCtx->streams[stream_index]->codec,
+				&encPkt,
+				NULL, 
+				&gotFrame);
+
 		av_frame_free(NULL);
 		if (ret < 0) {
 			break;
 		}
-		if (!got_frame) {
+		if (!gotFrame) {
 			ret = 0;
 			break;
 		}
-		ret = av_write_frame(m_OutputFormatCtx, &enc_pkt);
+		ret = av_write_frame(m_outputFormatCtx, &encPkt);
 		if (ret < 0) {
 			break;
 		}
 	}
-	av_free_packet(&enc_pkt);
+	av_free_packet(&encPkt);
 	return ret;
 }
 
-// 添加水印功能函数
-// 参数1 输入当前摄像头获取的图像数据
-// 可实现将水印与当前帧图像合并
+/*
+ * 添加水印功能函数,可实现将水印与当前帧图像合并
+ * 参数:
+ *		img: 输入当前摄像头获取的图像数据
+ */
 void DataProcess::AddWaterMask(cv::Mat& img)
 {
-	if (m_WaterMaskFlag <= DP_WATERMASK_NONE) {
+	if (m_waterMaskFlag <= DP_WATERMASK_NONE) {
 		return;
 	}
 
-	float tmp_tpy = m_Transparency / 100.0;
+	float tmpTpy = m_transparency / 100.0;
+	cv::Rect rectShow(m_waterMaskRect.left(), m_waterMaskRect.top(),
+		m_waterMaskRect.width(), m_waterMaskRect.height());
 
-	switch (m_WaterMaskFlag)
+	switch (m_waterMaskFlag)
 	{
 	case DP_WATERMASK_RGB:
-		cv::add(tmp_tpy*img(cv::Rect(10, 10,
-			m_WaterMaskImg.cols, m_WaterMaskImg.rows)),
-			(1 - tmp_tpy)*m_WaterMaskImg,
-			img(cv::Rect(10, 10, m_WaterMaskImg.cols, m_WaterMaskImg.rows)),
-			m_MaskImg, -1);
+		cv::add(tmpTpy*img(rectShow),
+			(1 - tmpTpy)*m_waterMaskImg,
+			img(rectShow),
+			m_maskImg, -1);
 		break;
 	case DP_WATERMASK_GIF:
 	{
-		if (m_WaterMaskGifImg.size() == 0) {
+		if (m_waterMaskGifImg.size() == 0) {
 			break;
 		}
-		if (m_ShowIndex >= m_WaterMaskGifImg.size()) {
-			m_ShowIndex = 0;
+		if (m_showIndex >= m_waterMaskGifImg.size()) {
+			m_showIndex = 0;
 		}
-		int i = m_ShowIndex;
-		cv::add(tmp_tpy*img(cv::Rect(10, 10, m_WaterMaskGifImg[i].cols, m_WaterMaskGifImg[i].rows)),
-			(1 - tmp_tpy)*m_WaterMaskGifImg[i],
-			img(cv::Rect(10, 10, m_WaterMaskGifImg[i].cols, m_WaterMaskGifImg[i].rows)),
-			m_MaskGifImg[i], -1);
+		int i = m_showIndex;
+		cv::add(tmpTpy*img(rectShow),
+			(1 - tmpTpy)*m_waterMaskGifImg[i],
+			img(rectShow),
+			m_maskGifImg[i], -1);
 
-		if (m_Internal >= 4 /*该值可以之后设置*/) {
-			m_ShowIndex++;
-			m_Internal = 0;
+		if (m_internal >= 4 /*该值可以之后设置*/) {
+			m_showIndex++;
+			m_internal = 0;
 		}
-		m_Internal++;
+		m_internal++;
 		break;
 	}
 	default:
@@ -457,40 +537,43 @@ void DataProcess::AddWaterMask(cv::Mat& img)
 	}
 }
 
-// 抓拍图像
-// 参数1 输入当前显示帧图像
-// 将当前帧图像copy，并发送信号进行存储
-void DataProcess::GrabImage(cv::Mat& img)
+/*
+ * 抓拍图像,赋值当前帧数据，并发送信号进行存储
+ * 参数：
+ *		img: 输入当前显示帧图像
+ */
+void DataProcess::GrabImage(const cv::Mat& img)
 {
-	if (m_GrabImgFlag == DP_GRAB_PROCESSING) {
-		m_GrabImgFlag = DP_GRAB_SAVING;
-		m_GrabImgMat = img.clone();
+	if (m_grabImgFlag == DP_GRAB_PROCESSING) {
+		m_grabImgFlag = DP_GRAB_SAVING;
+		m_grabImgMat = img.clone();
 		emit SendImageGrabMsg();
 	}
 }
 
-// 存储抓拍图像
+/*
+ * 存储抓拍图像
+ */
 void DataProcess::SaveGrabImage()
 {
 	QDateTime time = QDateTime::currentDateTime();
 	QString str = time.toString("yyyyMMddhhmmsszzz") + ".jpg";
-	cv::imwrite(str.toStdString(), m_GrabImgMat);
-	m_GrabImgMat.release();
-	m_GrabImgFlag = DP_GRAB_READY;
+	cv::imwrite(m_saveGrabImgPath + "/" + str.toStdString(), m_grabImgMat);
+	m_grabImgMat.release();
+	m_grabImgFlag = DP_GRAB_READY;
 }
 
-
-void OilPaint(cv::Mat& I, int brushSize, int coarseness)
+void OilPaint(cv::Mat& img, int brushSize, int coarseness)
 {
-	assert(!I.empty());
+	assert(!img.empty());
 	if (brushSize < 1) brushSize = 1;
 	if (brushSize > 8) brushSize = 8;
 
 	if (coarseness < 1) coarseness = 1;
 	if (coarseness > 255) coarseness = 255;
 
-	int width = I.cols;
-	int height = I.rows;
+	int width = img.cols;
+	int height = img.rows;
 
 	int lenArray = coarseness + 1;
 	int* CountIntensity = new int[lenArray];
@@ -498,73 +581,63 @@ void OilPaint(cv::Mat& I, int brushSize, int coarseness)
 	uint* GreenAverage = new uint[lenArray];
 	uint* BlueAverage = new uint[lenArray];
 
-	/// 图像灰度化
 	cv::Mat gray;
-	cvtColor(I, gray, cv::COLOR_BGR2GRAY);
+	cvtColor(img, gray, cv::COLOR_BGR2GRAY);
 
-
-	/// 目标图像
-	cv::Mat dst = cv::Mat::zeros(I.size(), I.type());
+	cv::Mat dst = cv::Mat::zeros(img.size(), img.type());
 
 	for (int nY = 0; nY <height; nY++)
 	{
-	// 油画渲染范围上下边界
-	int top = nY - brushSize;
-	int bottom = nY + brushSize + 1;
+		int top = nY - brushSize;
+		int bottom = nY + brushSize + 1;
 
-	if (top<0) top = 0;
-	if (bottom >= height) bottom = height - 1;
+		if (top<0) top = 0;
+		if (bottom >= height) bottom = height - 1;
 
-	for (int nX = 0; nX<width; nX++)
-	{
-	// 油画渲染范围左右边界
-	int left = nX - brushSize;
-	int right = nX + brushSize + 1;
+		for (int nX = 0; nX<width; nX++)
+		{
+			int left = nX - brushSize;
+			int right = nX + brushSize + 1;
 
-	if (left<0) left = 0;
-	if (right >= width) right = width - 1;
+			if (left<0) left = 0;
+			if (right >= width) right = width - 1;
 
-	//初始化数组
-	for (int i = 0; i <lenArray; i++)
-	{
-		CountIntensity[i] = 0;
-		RedAverage[i] = 0;
-		GreenAverage[i] = 0;
-		BlueAverage[i] = 0;
-	}
+			for (int i = 0; i <lenArray; i++)
+			{
+				CountIntensity[i] = 0;
+				RedAverage[i] = 0;
+				GreenAverage[i] = 0;
+				BlueAverage[i] = 0;
+			}
 
+			for (int j = top; j<bottom; j++)
+			{
+				for (int i = left; i < right; i++)
+				{
+					uchar intensity = static_cast<uchar>(coarseness*gray.at<uchar>(j, i) / 255.0);
+					CountIntensity[intensity]++;
 
-	// 下面这个内循环类似于外面的大循环
-	// 也是油画特效处理的关键部分
-	for (int j = top; j<bottom; j++)
-	{
-	for (int i = left; i<right; i++)
-	{
-	uchar intensity = static_cast<uchar>(coarseness*gray.at<uchar>(j, i) / 255.0);
-	CountIntensity[intensity]++;
+					RedAverage[intensity] += img.at<cv::Vec3b>(j, i)[2];
+					GreenAverage[intensity] += img.at<cv::Vec3b>(j, i)[1];
+					BlueAverage[intensity] += img.at<cv::Vec3b>(j, i)[0];
+				}
+			}
 
-	RedAverage[intensity] += I.at<cv::Vec3b>(j, i)[2];
-	GreenAverage[intensity] += I.at<cv::Vec3b>(j, i)[1];
-	BlueAverage[intensity] += I.at<cv::Vec3b>(j, i)[0];
-	}
-	}
+			uchar chosenIntensity = 0;
+			int maxInstance = CountIntensity[0];
+			for (int i = 1; i<lenArray; i++)
+			{
+				if (CountIntensity[i] > maxInstance)
+				{
+					chosenIntensity = (uchar)i;
+					maxInstance = CountIntensity[i];
+				}
+			}
 
-	// 求最大值，并记录下数组索引
-	uchar chosenIntensity = 0;
-	int maxInstance = CountIntensity[0];
-	for (int i = 1; i<lenArray; i++)
-	{
-	if (CountIntensity[i]>maxInstance)
-	{
-	chosenIntensity = (uchar)i;
-	maxInstance = CountIntensity[i];
-	}
-	}
-
-	dst.at<cv::Vec3b>(nY, nX)[2] = static_cast<uchar>(RedAverage[chosenIntensity] / static_cast<float>(maxInstance));
-	dst.at<cv::Vec3b>(nY, nX)[1] = static_cast<uchar>(GreenAverage[chosenIntensity] / static_cast<float>(maxInstance));
-	dst.at<cv::Vec3b>(nY, nX)[0] = static_cast<uchar>(BlueAverage[chosenIntensity] / static_cast<float>(maxInstance));
-	}
+			dst.at<cv::Vec3b>(nY, nX)[2] = static_cast<uchar>(RedAverage[chosenIntensity] / static_cast<float>(maxInstance));
+			dst.at<cv::Vec3b>(nY, nX)[1] = static_cast<uchar>(GreenAverage[chosenIntensity] / static_cast<float>(maxInstance));
+			dst.at<cv::Vec3b>(nY, nX)[0] = static_cast<uchar>(BlueAverage[chosenIntensity] / static_cast<float>(maxInstance));
+		}
 
 	}
 
@@ -572,18 +645,20 @@ void OilPaint(cv::Mat& I, int brushSize, int coarseness)
 	delete[] RedAverage;
 	delete[] GreenAverage;
 	delete[] BlueAverage;
-	dst.copyTo(I);
+	dst.copyTo(img);
 }
 
-
-// 预览功能图像处理函数
-// 参数1 输入解码后的图像数据
-// 根据当前显示风格进行不同的处理（目前还不支持油画）
-// 处理完成将图像数据放入缓冲队列
+/*
+ * 预览功能图像处理函数，
+ * 根据当前显示风格进行不同的处理
+ * 处理完成将图像数据放入缓冲队列
+ * 参数：
+ *		img: 待预处理的图像
+ */
 void DataProcess::PreviewImage(cv::Mat& img)
 {
-	QImage Qimg;
-	switch (m_ImageStyle)
+
+	switch (m_imageStyle)
 	{
 	case DP_IMAGESTYLE_NORMAL:
 	{
@@ -592,7 +667,7 @@ void DataProcess::PreviewImage(cv::Mat& img)
 	}
 	case DP_IMAGESTYLE_OIL:
 	{
-		OilPaint(img, 2, 177);
+		OilPaint(img, 2, 100);
 		cv::cvtColor(img, img, CV_BGR2RGB);
 		break;
 	}
@@ -605,50 +680,73 @@ void DataProcess::PreviewImage(cv::Mat& img)
 		break;
 	}
 
-	EnterCriticalSection(&m_PreviewLock);
-	while (m_ShowImageBuf.size() > 30) {
-		m_ShowImageBuf.pop();
+	EnterCriticalSection(&m_previewLock);
+
+	while (m_showImageBuf.size() > 1) {
+		m_showImageBuf.pop();
 	}
-	m_ShowImageBuf.push(img);
-	LeaveCriticalSection(&m_PreviewLock);
+	m_showImageBuf.push(img);
+
+	LeaveCriticalSection(&m_previewLock);
 
 	emit SendUpdataImgMsg();
 }
 
+/*
+ * 对图像进行噪点优化
+ * 参数：
+ *		img: 待优化的图像
+ */
 void DataProcess::OptimizeImage(cv::Mat & img)
 {
-	if (m_NoiseOptimizationFlag) {
+	if (m_noiseOptimizationFlag) {
 		cv::medianBlur(img, img, 3);
 	}
 }
 
-// 得到待显示的摄像头图像数据
-// 参数1 需要显示的QImage对象
-// 从缓冲队列头部拿出图像数据
+/*
+ * 得到待显示的摄像头图像数据
+ * 参数：
+ *		img：从缓冲队列得到的图像数据
+ */
 void DataProcess::GetShowImageBuffer(cv::Mat& img)
 {
-	EnterCriticalSection(&m_PreviewLock);
-	if (!m_ShowImageBuf.empty()) {
-		img = m_ShowImageBuf.front();
-		m_ShowImageBuf.pop();
+	EnterCriticalSection(&m_previewLock);
+
+	if (!m_showImageBuf.empty()) {
+		img = m_showImageBuf.front();
+		m_showImageBuf.pop();
 	}
-	LeaveCriticalSection(&m_PreviewLock);
+
+	LeaveCriticalSection(&m_previewLock);
 }
 
+/*
+ * 得到待编码存储的图像数据
+ * 参数：
+ *		img：从缓冲队列得到的图像数据
+ */
 void DataProcess::GetSaveImageBuffer(cv::Mat& img)
 {
-	EnterCriticalSection(&m_SaveBufferLock);
-	if (!m_SaveImageBuf.empty()) {
-		img = m_SaveImageBuf.front();
-		m_SaveImageBuf.pop();
+	EnterCriticalSection(&m_saveBufferLock);
+
+	if (!m_saveImageBuf.empty()) {
+		img = m_saveImageBuf.front();
+		m_saveImageBuf.pop();
 	}
-	LeaveCriticalSection(&m_SaveBufferLock);
+
+	LeaveCriticalSection(&m_saveBufferLock);
 }
 
+/*
+ * 图像编码存储线程
+ * 参数：
+ *		pm：另一个线程传入的对象指针
+ */
 DWORD WINAPI SaveVideoThread(LPVOID pm)
 {
 	DataProcess *pDP = static_cast<DataProcess*>(pm);
-	int pts_num = 0;
+	int ptsNum = 0;
 	while (1)
 	{
 		if (pDP->GetSaveVideoFlag() == DP_SAVEVIDEO_SAVING) {
@@ -658,26 +756,28 @@ DWORD WINAPI SaveVideoThread(LPVOID pm)
 				Sleep(500);
 				continue;
 			}
-			uint8_t *rgb_src[3] = { img.data, NULL, NULL };
+			uint8_t *rgbSrc[3] = { img.data, NULL, NULL };
 			SwsContext* pSwsCxt;
+
 			if (img.channels() == 1/*pDP->GetImageStyle() == DP_IMAGESTYLE_GRAY*/) {
 				pSwsCxt = sws_getContext(img.cols,
 					img.rows, PIX_FMT_GRAY8, img.cols,
 					img.rows, PIX_FMT_YUV420P, SWS_BILINEAR, NULL, NULL, NULL);
-				int rgb_stride[3] = { img.cols, 0, 0 };
-				sws_scale(pSwsCxt, rgb_src, rgb_stride, 0, img.rows,
+				int rgbStride[3] = { img.cols, 0, 0 };
+				sws_scale(pSwsCxt, rgbSrc, rgbStride, 0, img.rows,
 					((AVPicture *)pDP->GetOutputFrame())->data, ((AVPicture *)pDP->GetOutputFrame())->linesize);
 			}
 			else {
 				pSwsCxt = sws_getContext(img.cols,
 					img.rows, PIX_FMT_RGB24, img.cols,
 					img.rows, PIX_FMT_YUV420P, SWS_BILINEAR, NULL, NULL, NULL);
-				int rgb_stride[3] = { 3 * img.cols, 0, 0 };
-				sws_scale(pSwsCxt, rgb_src, rgb_stride, 0, img.rows,
+				int rgbStride[3] = { 3 * img.cols, 0, 0 };
+				sws_scale(pSwsCxt, rgbSrc, rgbStride, 0, img.rows,
 					((AVPicture *)pDP->GetOutputFrame())->data, ((AVPicture *)pDP->GetOutputFrame())->linesize);
 			}
-			pDP->WriteVideoFrame(pts_num);
-			pts_num++;
+
+			pDP->WriteVideoFrame(ptsNum);
+			ptsNum++;
 			sws_freeContext(pSwsCxt);
 			img.release();
 		}
@@ -693,60 +793,84 @@ DWORD WINAPI SaveVideoThread(LPVOID pm)
 	return 0;
 }
 
-// 录像功能主函数
-// 参数1 待编码存储的图像数据
-// 根据当前录像状态参数进行初始化，编码存储，
-// 直接返回或者将数据写入文件尾，
-void DataProcess::SaveVideo(cv::Mat& img, const PreviewCameraInfo& cInfo)
+/*
+ * 录像功能主函数
+ * 根据当前录像状态参数进行初始化，编码存储
+ * 直接返回或者将数据写入文件尾
+ * 参数：
+ *		img：待编码存储的图像数据
+ *		cInfo：编码的参数，包括分辨率，帧率
+ */
+void DataProcess::SaveVideo(const cv::Mat& img, const PreviewCameraInfo& cInfo)
 {
-	if (m_SaveVideoFlag == DP_SAVEVIDEO_NONE) {
+	if (m_saveVideoFlag == DP_SAVEVIDEO_NONE) {
 		return;
 	}
-	else if (m_SaveVideoFlag == DP_SAVEVIDEO_INIT) {
+	else if (m_saveVideoFlag == DP_SAVEVIDEO_INIT) {
 		if (MP4OutputConfig(cInfo) != DP_SAVEVIDEO_INIT_OK) {
-			m_SaveVideoFlag = DP_SAVEVIDEO_NONE;
+			m_saveVideoFlag = DP_SAVEVIDEO_NONE;
 			return;
 		}
 		CreateThread(NULL, 0, SaveVideoThread, this, 0, NULL);
-		m_PtsNum = 0;
-		m_SaveVideoFlag = DP_SAVEVIDEO_SAVING;
+		m_ptsNum = 0;
+		m_saveVideoFlag = DP_SAVEVIDEO_SAVING;
 	}
-	else if (m_SaveVideoFlag == DP_SAVEVIDEO_SAVING) {
-		EnterCriticalSection(&m_SaveBufferLock);
-		m_SaveImgMat = img.clone();
-		m_SaveImageBuf.push(m_SaveImgMat);
-		LeaveCriticalSection(&m_SaveBufferLock);
+	else if (m_saveVideoFlag == DP_SAVEVIDEO_SAVING) {
+		EnterCriticalSection(&m_saveBufferLock);
+		m_saveImgMat = img.clone();
+		m_saveImageBuf.push(m_saveImgMat);
+		LeaveCriticalSection(&m_saveBufferLock);
 	}
 }
 
-
-// 主要线程运行函数
-// while循环一直不断的从摄像头读取数据包
-// 在即将退出该函数时向主UI线程发送结束信号
+/*
+ * 获取图像数据线程
+ * 对图像根据需求做对应的处理
+ * 在即将结束该线程时时向主UI线程发送结束信号
+ */
 void DataProcess::run()
 {
-	m_pCDTI->CameraInit(m_CameraInfo);
+	LARGE_INTEGER nFreq;
+	LARGE_INTEGER nFirstTime;
+	LARGE_INTEGER nEndTime;
+
+	QueryPerformanceFrequency(&nFreq);
+
+	m_pCDT->CameraInputInit(m_cameraInfo);
+
+	int fps = atoi(m_cameraInfo.fps.c_str());
+	int perTime = 1000 / fps;
 	int ret = 0;
 	while (1) {
-		if (b_ThreadStop) {
-			b_ThreadStop = false;
+		if (b_threadStop) {
+			b_threadStop = false;
 			break;
 		}
-		cv::Mat img = m_pCDTI->GetFrameData();
+
+		QueryPerformanceCounter(&nFirstTime);
+
+		cv::Mat img = m_pCDT->GetFrameData();
 		if (img.empty()) {
-//			Sleep(5);
+			Sleep(100);
 			continue;
 		}
-		OptimizeImage(img);
-		AddWaterMask(img);		// 添加水印
-		GrabImage(img);			// 抓拍图像
-		PreviewImage(img);		// 预览图像
-
-		SaveVideo(img, m_CameraInfo);			// 保存视频
+		OptimizeImage(img);				// 噪点优化
+		AddWaterMask(img);				// 添加水印
+		GrabImage(img);					// 抓拍图像
+		PreviewImage(img);				// 预览图像
+		
+		SaveVideo(img, m_cameraInfo);	// 保存视频
 		img.release();
-//		Sleep(5);
-		cvWaitKey(1);
+
+		QueryPerformanceCounter(&nEndTime);
+		int m_interTime = (double)(nEndTime.QuadPart - nFirstTime.QuadPart) 
+								* 1000 / (double)nFreq.QuadPart;
+
+		if (m_interTime < perTime) {
+			Sleep(perTime - m_interTime);
+		}
 	}
-	m_pCDTI->DestoryInputParam();
+
+	m_pCDT->DestoryInputParam();
 	SendAbort(ret);
 }

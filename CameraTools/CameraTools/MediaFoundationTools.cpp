@@ -3,17 +3,24 @@
 
 MediaFoundationTools::MediaFoundationTools()
 {
-	ppDevices = NULL;
-	pAttributes = NULL;
-	reader = nullptr;
-	m_DataTypeFlag = MFT_DATATYPE_RGB24;
+	m_ppDevices = NULL;
+	m_pAttributes = NULL;
+	m_pReader = nullptr;
+	m_dataTypeFlag = MFT_DATATYPE_RGB24;
 }
 
 
 MediaFoundationTools::~MediaFoundationTools()
 {
+
 }
 
+/*
+ * 将WCHAR 转换成 std::string
+ * 参数：
+ *		pwszSrc：输入的WCHAR类型的字符串
+ * 返回值：转换后的string类型
+ */
 std::string MediaFoundationTools::WChar2String(LPCWSTR pwszSrc)
 {
 	int nLen = WideCharToMultiByte(CP_ACP, 0, pwszSrc, -1, NULL, 0, NULL, NULL);
@@ -31,6 +38,13 @@ std::string MediaFoundationTools::WChar2String(LPCWSTR pwszSrc)
 	return strTemp;
 }
 
+/*
+ * 将得到的帧率的分子和分母算出实际的帧率
+ * 参数：
+ *		framerate: 帧率的分子
+ *		den：帧率的分母
+ * 返回值：std::string型的帧率
+ */
 std::string MediaFoundationTools::ToFpsString(int framerate, int den)
 {
 	std::stringstream ss;
@@ -41,6 +55,12 @@ std::string MediaFoundationTools::ToFpsString(int framerate, int den)
 	return fps;
 }
 
+/*
+* 获得GUID对应的数据格式
+* 参数：
+*		guid：输入的GUID值
+* 返回值：guid对应的string数据类型
+*/
 std::string MediaFoundationTools::GetSubType(GUID guid)
 {
 	if (guid == MFVideoFormat_YUY2) {
@@ -58,28 +78,40 @@ std::string MediaFoundationTools::GetSubType(GUID guid)
 	return std::string();
 }
 
-GUID MediaFoundationTools::SetSubType(std::string type)
+/*
+ * 得到std::string 数据类型所对应的GUID
+ * 参数:
+ *		type：std::string型的数据类型
+ * 返回值：对应的GUID值
+ */
+GUID MediaFoundationTools::GetSubType(std::string type)
 {
 	if (type == "YUY2") {
-		m_DataTypeFlag = MFT_DATATYPE_YUV2;
+		m_dataTypeFlag = MFT_DATATYPE_YUV2;
 		return MFVideoFormat_YUY2;
 	}
 	if (type == "MJPG") {
-		m_DataTypeFlag = MFT_DATATYPE_MJPG;
+		m_dataTypeFlag = MFT_DATATYPE_MJPG;
 		return MFVideoFormat_MJPG;
 	}
 	if (type == "RGB24") {
-		m_DataTypeFlag = MFT_DATATYPE_RGB24;
+		m_dataTypeFlag = MFT_DATATYPE_RGB24;
 		return MFVideoFormat_RGB24;
 	}
 	if (type == "I420") {
-		m_DataTypeFlag = MFT_DATATYPE_I420;
+		m_dataTypeFlag = MFT_DATATYPE_I420;
 		return MFVideoFormat_I420;
 	}
 	return GUID();
 }
 
-int MediaFoundationTools::SetDevice(std::string name)
+/*
+ * 得到UI中所选择的摄像头设备
+ * 参数：
+ *		name：选中的摄像头设备名称
+ * 返回值：小于0，则失败；大于等于0，则成功
+ */
+int MediaFoundationTools::GetDevice(std::string name)
 {
 	HRESULT hr;
 	hr = MFStartup(MF_VERSION, MFSTARTUP_LITE);
@@ -87,43 +119,48 @@ int MediaFoundationTools::SetDevice(std::string name)
 		return -1;
 	}
 
-	hr = MFCreateAttributes(&pAttributes, 1);
+	hr = MFCreateAttributes(&m_pAttributes, 1);
 	if (FAILED(hr)) {
 		return -1;
 	}
-	hr = pAttributes->SetGUID(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
+	hr = m_pAttributes->SetGUID(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
 		MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID);
 	if (FAILED(hr)) {
 		return -1;
 	}
 
 	UINT32 dwCount = 0;
-	hr = MFEnumDeviceSources(pAttributes, &ppDevices, &dwCount);
+	hr = MFEnumDeviceSources(m_pAttributes, &m_ppDevices, &dwCount);
 	if (FAILED(hr) || dwCount == 0) {
 		return -1;
 	}
 
 	WCHAR FriendlyName[256];
 	for (DWORD i = 0; i < dwCount; i++) {
-		ppDevices[i]->GetString(MF_DEVSOURCE_ATTRIBUTE_FRIENDLY_NAME,
+		m_ppDevices[i]->GetString(MF_DEVSOURCE_ATTRIBUTE_FRIENDLY_NAME,
 			FriendlyName, 256, NULL);
-		m_DeviceIndex = i;
+		m_deviceIndex = i;
 		if (WChar2String(FriendlyName) == name) {
 			return 0;
 		}
-		ppDevices[i]->Release();
+		m_ppDevices[i]->Release();
 	}
 	return -1;
 }
 
+/*
+ * 设置摄像头的工作参数
+ * 参数：
+ *		cInfo：包含摄像头的分辨率，帧率，输出数据格式参数
+ */
 void MediaFoundationTools::SetDataInfo(const PreviewCameraInfo& cInfo)
 {
-	GUID subtype = SetSubType(cInfo.type);
+	GUID subtype = GetSubType(cInfo.type);
 
 	IMFMediaType *pNativeType = NULL;
 	IMFMediaType *pType = NULL;
 
-	HRESULT hr = reader->GetNativeMediaType(
+	HRESULT hr = m_pReader->GetNativeMediaType(
 		(DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, 
 		0, 
 		&pNativeType);
@@ -154,12 +191,16 @@ void MediaFoundationTools::SetDataInfo(const PreviewCameraInfo& cInfo)
 	}
 	int width = 0, height = 0;
 	GetResolutionFromString(cInfo.resolution, width, height);
-	m_Width = width;
-	m_Height = height;
+	m_width = width;
+	m_height = height;
 	MFSetAttributeSize(pType, MF_MT_FRAME_SIZE, width, height);
 	MFSetAttributeRatio(pType, MF_MT_FRAME_RATE, atoi(cInfo.fps.c_str()), 1);
 
-	hr = reader->SetCurrentMediaType((DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, NULL, pType);
+	hr = m_pReader->SetCurrentMediaType(
+			(DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM,
+			NULL,
+			pType);
+
 	if (FAILED(hr)) {
 		goto done;
 	}
@@ -171,7 +212,17 @@ done:
 	pType = NULL;
 }
 
-void MediaFoundationTools::GetResolutionFromString(const std::string & res, int & width, int & height)
+/*
+ * 将string型表示的分辨率分解成int型长和宽
+ * 参数：
+ *		res: 输入的待分解的字符串分辨率
+ *		width：得到的分辨率的宽度
+ *		height：得到的分辨率的长度
+ */
+void MediaFoundationTools::GetResolutionFromString(
+	const std::string & res, 
+	int & width,
+	int & height)
 {
 	int index = res.find('x');
 	if (index == std::string::npos) {
@@ -181,7 +232,11 @@ void MediaFoundationTools::GetResolutionFromString(const std::string & res, int 
 	height = std::atoi(res.substr(index+1).c_str());
 }
 
-
+/*
+ * 列举当前系统中可用的摄像头设备
+ * 检测每个可用设备的详细参数，即分辨率，帧率，数据格式
+ * 返回值：包含系统可用摄像头及其详细参数
+ */
 std::vector<CameraDeviceInfo> MediaFoundationTools::ListCameraDevice()
 {
 	std::vector<CameraDeviceInfo> cInfo;
@@ -192,11 +247,11 @@ std::vector<CameraDeviceInfo> MediaFoundationTools::ListCameraDevice()
 		return cInfo;
 	}
 	
-	hr = MFCreateAttributes(&pAttributes, 1);
+	hr = MFCreateAttributes(&m_pAttributes, 1);
 	if (FAILED(hr)) {
 		return cInfo;
 	}
-	hr = pAttributes->SetGUID(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
+	hr = m_pAttributes->SetGUID(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
 		MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID);
 	if (FAILED(hr)) {
 		return cInfo;
@@ -204,41 +259,45 @@ std::vector<CameraDeviceInfo> MediaFoundationTools::ListCameraDevice()
 
 	UINT32 dwCount = 0;
 	
-	hr = MFEnumDeviceSources(pAttributes, &ppDevices, &dwCount);
+	hr = MFEnumDeviceSources(m_pAttributes, &m_ppDevices, &dwCount);
 	if (FAILED(hr)) {
 		return cInfo;
 	}
 	if (dwCount == 0) {
 		hr = E_FAIL;
 	}
-	WCHAR FriendlyName[256];
+	WCHAR friendlyName[256];
 	for (DWORD i = 0; i < dwCount; i++) {
-		ppDevices[i]->GetString(MF_DEVSOURCE_ATTRIBUTE_FRIENDLY_NAME,
-			FriendlyName, 256, NULL);
-		m_DeviceIndex = i;
+		m_ppDevices[i]->GetString(MF_DEVSOURCE_ATTRIBUTE_FRIENDLY_NAME,
+			friendlyName, 256, NULL);
+		m_deviceIndex = i;
 		cDeviceInfo = GetCameraDeviceInfo();
-		cDeviceInfo.friend_name = WChar2String(FriendlyName);
-		ppDevices[i]->Release();
+		cDeviceInfo.friend_name = WChar2String(friendlyName);
+		m_ppDevices[i]->Release();
 		cInfo.push_back(cDeviceInfo);
 	}
-	CoTaskMemFree(ppDevices);
-	pAttributes->Release();
+	CoTaskMemFree(m_ppDevices);
+	m_pAttributes->Release();
 	MFShutdown();
 	return cInfo;
 }
 
+/*
+ * 得到当前设备的详细参数，即分辨率，帧率，数据格式
+ * 返回值：摄像头的详细参数结构体
+ */
 CameraDeviceInfo MediaFoundationTools::GetCameraDeviceInfo()
 {
 	CameraDeviceInfo cDeviceInfo;
 	IMFMediaSource *pSource = NULL;
-	ppDevices[m_DeviceIndex]->ActivateObject(
+	m_ppDevices[m_deviceIndex]->ActivateObject(
 		__uuidof(IMFMediaSource),
 		(void**)&pSource
 	);
 	HRESULT hr = MFCreateSourceReaderFromMediaSource(
 		pSource,
-		pAttributes,
-		&reader
+		m_pAttributes,
+		&m_pReader
 	);
 
 	IMFMediaType* mediaType = nullptr;
@@ -249,7 +308,7 @@ CameraDeviceInfo MediaFoundationTools::GetCameraDeviceInfo()
 	UINT32 width, height, frameRate, denominator;
 	while (hr == S_OK)
 	{
-		hr = reader->GetNativeMediaType((DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, 
+		hr = m_pReader->GetNativeMediaType((DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, 
 			 index, &mediaType);
 		if (hr != S_OK)
 			break;
@@ -268,6 +327,15 @@ CameraDeviceInfo MediaFoundationTools::GetCameraDeviceInfo()
 	return cDeviceInfo;
 }
 
+/*
+ * 将原始摄像头原始获得的数据转换成RGB24格式
+ * 参数：
+ *		pSample: 包含有图像数据的对象
+ *		pRGBData: 转换后的RGB24图像数据的指针
+ *		width: 图像宽度
+ *		height:	图像高度
+ * 返回值：转换后的cv::Mat图像数据
+ */
 cv::Mat MediaFoundationTools::TransformRawDataToRGB(
 	IMFSample *pSample,
 	uint8_t * pRGBData,
@@ -278,31 +346,31 @@ cv::Mat MediaFoundationTools::TransformRawDataToRGB(
 	pSample->GetBufferByIndex(0, &buffer);
 	cv::Mat frameImg;
 	BYTE* pRawData;
-	DWORD buffer_size;
-	buffer->Lock(&pRawData, NULL, &buffer_size);
+	DWORD bufferSize;
+	buffer->Lock(&pRawData, NULL, &bufferSize);
 
-	switch (m_DataTypeFlag)
+	switch (m_dataTypeFlag)
 	{
 	case MFT_DATATYPE_I420:
-		I420_To_BGR24(pRawData, pRGBData, width, height);
-		frameImg = cv::Mat(m_Height, m_Width, CV_8UC3, pRGBData);
+		I420ToBGR24(pRawData, pRGBData, width, height);
+		frameImg = cv::Mat(m_height, m_width, CV_8UC3, pRGBData);
 		break;
 
 	case MFT_DATATYPE_MJPG:
-		MJPG_To_BGR24(pRawData, buffer_size, pRGBData);
-		frameImg = cv::Mat(m_Height, m_Width, CV_8UC3, pRGBData);
+		MJPGToBGR24(pRawData, bufferSize, pRGBData);
+		frameImg = cv::Mat(m_height, m_width, CV_8UC3, pRGBData);
 		cv::cvtColor(frameImg, frameImg, CV_RGB2BGR);
 		break;
 
 	case MFT_DATATYPE_RGB24:
-		memcpy(pRGBData, pRawData, buffer_size);
-		frameImg = cv::Mat(m_Height, m_Width, CV_8UC3, pRGBData);
+		memcpy(pRGBData, pRawData, bufferSize);
+		frameImg = cv::Mat(m_height, m_width, CV_8UC3, pRGBData);
 		cv::flip(frameImg, frameImg, 0);
 		break;
 
 	case MFT_DATATYPE_YUV2:
-		YUV2_To_RGB24(pRawData, pRGBData, width, height);
-		frameImg = cv::Mat(m_Height, m_Width, CV_8UC3, pRGBData);
+		YUV2ToRGB24(pRawData, pRGBData, width, height);
+		frameImg = cv::Mat(m_height, m_width, CV_8UC3, pRGBData);
 		cv::flip(frameImg, frameImg, 0);
 		break;
 
@@ -315,7 +383,16 @@ cv::Mat MediaFoundationTools::TransformRawDataToRGB(
 	return frameImg;
 }
 
-bool MediaFoundationTools::YUV2_To_RGB24(
+/*
+ * 将YUV2数据转换成RGB24格式
+ * 参数：
+ *		pYUVData: 包含YUV2格式图像数据的指针
+ *		pRGBData: 转换后的RGB24图像数据的指针
+ *		width: 图像宽度
+ *		height:	图像高度
+ * 返回值：转换失败返回false，转换成功返回true
+ */
+bool MediaFoundationTools::YUV2ToRGB24(
 	uint8_t* pYUVData,
 	uint8_t *pRGBData, 
 	const int& width, 
@@ -354,7 +431,16 @@ bool MediaFoundationTools::YUV2_To_RGB24(
 	return true;
 }
 
-bool MediaFoundationTools::I420_To_BGR24(
+/*
+ * 将I420数据转换成RGB24格式
+ * 参数：
+ *		pYUV420: 包含I420格式图像数据的指针
+ *		pRGBData: 转换后的RGB24图像数据的指针
+ *		width: 图像宽度
+ *		height:	图像高度
+ * 返回值：转换失败返回false，转换成功返回true
+ */
+bool MediaFoundationTools::I420ToBGR24(
 	uint8_t* pYUV420,
 	uint8_t *pRGBData,
 	const int& width,
@@ -410,7 +496,15 @@ bool MediaFoundationTools::I420_To_BGR24(
 	return true;
 }
 
-bool MediaFoundationTools::MJPG_To_BGR24(
+/*
+ * 将MJPG数据解码成RGB24格式
+ * 参数：
+ *		pMJPG: 包含MJPG格式图像数据的指针
+ *		srcSize: 原始图像数据的大小
+ *		prgb: 解码后的RGB24图像数据的指针
+ * 返回值：转换失败返回false，转换成功返回true
+ */
+bool MediaFoundationTools::MJPGToBGR24(
 	uint8_t* pMjpg, 
 	const int& srcSize,
 	uint8_t* prgb)
@@ -431,15 +525,23 @@ bool MediaFoundationTools::MJPG_To_BGR24(
 
 	while (cinfo.output_scanline < cinfo.output_height)
 	{
-		row_pointer[0] = &prgb[cinfo.output_scanline*cinfo.image_width*cinfo.num_components];
+		row_pointer[0] = &prgb[cinfo.output_scanline
+							   * cinfo.image_width
+							   * cinfo.num_components];
+
 		jpeg_read_scanlines(&cinfo, row_pointer, 1);
 	}
 
 	jpeg_finish_decompress(&cinfo);
 	jpeg_destroy_decompress(&cinfo);
+
 	return true;
 }
 
+/*
+ * 解码从摄像头获取的数据包
+ * 返回值：小于0，则解码数据失败；大于等于0，则解码成功
+ */
 cv::Mat MediaFoundationTools::GetFrameData()
 {
 	HRESULT hr;
@@ -450,56 +552,71 @@ cv::Mat MediaFoundationTools::GetFrameData()
 	LONGLONG llTimeStamp;
 	cv::Mat tempImg;
 
-	hr = reader->ReadSample(
-		MF_SOURCE_READER_FIRST_VIDEO_STREAM,
-		0,
-		&streamIndex,
-		&flags,
-		&llTimeStamp,
-		&pSample
+	hr = m_pReader->ReadSample(
+			MF_SOURCE_READER_FIRST_VIDEO_STREAM,
+			0,
+			&streamIndex,
+			&flags,
+			&llTimeStamp,
+			&pSample
 	);
+
 	if (FAILED(hr)) {
-		return m_FrameImg;
+		return m_frameImg;
 	}
 	
 	if (pSample != NULL) {
-		int widthLine = (m_Width * 24 + 31) / 8;
-		uint8_t* pRGB = new uint8_t[widthLine*m_Height];
-		tempImg = TransformRawDataToRGB(pSample, pRGB, m_Width, m_Height);
-		m_FrameImg = tempImg.clone();
+		int widthLine = (m_width * 24 + 31) / 8;
+		uint8_t* pRGB = new uint8_t[widthLine*m_height];
+		tempImg = TransformRawDataToRGB(pSample, pRGB, m_width, m_height);
+		m_frameImg = tempImg.clone();
 		pSample->Release();
 		delete [] pRGB;
 		tempImg.release();
+//		imshow("1", m_frameImg);
+//		cvWaitKey(1);
 	}	
-	return m_FrameImg;
+	
+	return m_frameImg;
 }
 
+/*
+ * 摄像头初始化函数
+ * 参数：
+ *		cInfo：需要设置的餐宿
+ * 返回值：小于0，则初始化不成功；大于等于0，初始化成功
+ */
 int MediaFoundationTools::CameraInputInit(const PreviewCameraInfo& cInfo)
 {
-	if (SetDevice(cInfo.name) < 0) {
+	if (GetDevice(cInfo.name) < 0) {
 		return -1;
 	}
+
 	IMFMediaSource *pSource = NULL;
-	ppDevices[m_DeviceIndex]->ActivateObject(
+	m_ppDevices[m_deviceIndex]->ActivateObject(
 		__uuidof(IMFMediaSource),
 		(void**)&pSource
 	);
+
 	HRESULT hr = MFCreateSourceReaderFromMediaSource(
 		pSource,
-		pAttributes,
-		&reader
+		m_pAttributes,
+		&m_pReader
 	);
 
 	SetDataInfo(cInfo);
-	CoTaskMemFree(ppDevices);
-	pAttributes->Release();
+	CoTaskMemFree(m_ppDevices);
+	m_pAttributes->Release();
 	MFShutdown();
 	return 0;
 }
 
+/*
+ * 释放获取摄像头数据的相关参数的指针
+ */
 int MediaFoundationTools::DestoryInputParam()
 {
-//	ppDevices[m_DeviceIndex]->Release();
-	reader->Release();
+//	m_ppDevices[m_deviceIndex]->Release();
+	m_pReader->Release();
 	return 0;
 }
