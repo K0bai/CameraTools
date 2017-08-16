@@ -41,8 +41,9 @@ public:
 	void WriteRecord(QString msg);				 // 输出日志记录
 	void UpdateControl(int flag);				 // 更新界面控件
 
-	void ShowCameraInfo(const std::vector<CameraDeviceInfo>& camera_info,
-						const int& index);		 // 用于展示检测出的摄像头的具体数据
+	void ShowCameraInfo(
+		const std::vector<CameraDeviceInfo>& camera_info,
+		const int& index);						 // 用于展示检测出的摄像头的具体数据
 
 	void StartPreview(DataProcess* pDP);		 // 开始预览处理函数，将检测工具类指针传入
 
@@ -51,16 +52,20 @@ public:
 		int &width,
 		int &height);							 // 将分辨率转换成int型的长和宽
 
-	void BitToMat(FIBITMAP* fiBmp, 
-				  const FREE_IMAGE_FORMAT &fif,
-				  cv::Mat& gifImg, 
-				  cv::Mat& maskImg);			 // 函数用于将FIBITMAP*格式的数据转换为cv::Mat的数据
+	void BitToMat(
+		FIBITMAP* fiBmp, 
+		const FREE_IMAGE_FORMAT &fif,
+		cv::Mat& gifImg, 
+		cv::Mat& maskImg);						 // 函数用于将FIBITMAP*格式的数据转换为cv::Mat的数据
 
-	int GifToMat(std::vector<cv::Mat>& gifImgs, 
-				 std::vector<cv::Mat>& maskImgs, 
-				 std::string filename);			 // 用于读取GIF格式图像并将数据内容转换为cv::Mat
+	int GifToMat(
+		std::vector<cv::Mat>& gifImgs, 
+		std::vector<cv::Mat>& maskImgs, 
+		std::string filename);					 // 用于读取GIF格式图像并将数据内容转换为cv::Mat
 
-	int IsWaterMaskSizeOk(const int& height, const int& width);	// 用于判断添加水印大小是否合法
+	int IsWaterMaskSizeOk(
+		const int& height, 
+		const int& width);						 // 用于判断添加水印大小是否合法
 
 protected:
 	bool nativeEvent(const QByteArray &eventType,

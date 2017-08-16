@@ -6,6 +6,7 @@
 #include <queue>
 #include <Windows.h>
 #include "CameraDetectTools.h"
+#include "OilPainting.h"
 extern "C" {
 #include <libavdevice/avdevice.h>
 #include <libswscale/swscale.h>
@@ -51,6 +52,7 @@ extern "C" {
 #define DP_NOISEOPTIMIZATION_YES 1
 
 
+
 class DataProcess : public QThread
 {
 	Q_OBJECT
@@ -71,14 +73,12 @@ public:
 	int MP4OutputConfig(const PreviewCameraInfo& cInfo);			// 存储为MP4文件的初始化配置
 	void SaveVideo(const cv::Mat& img, const PreviewCameraInfo& cInfo);	// 本地录像的主函数，里面实现了正常，黑白和油画风格切换
 	void AddWaterMask(cv::Mat& img); 								// 添加水印时的处理函数
-	void GrabImage(const cv::Mat& img);									// 抓拍功能主函数
+	void GrabImage(const cv::Mat& img);								// 抓拍功能主函数
 	void PreviewImage(cv::Mat& img);								// 预览主函数，在里面实现正常，黑白和油画风格切换，并将图像数据写入缓冲队列
-	void OilPaintProcess(cv::Mat& img);								// 油画效果处理函数
 	void OptimizeImage(cv::Mat& img);								// 噪点优化函数，在里面实现对图像的中值滤波
 	void OpenOutputVideo();	 										// 打开输出文件的编码器以及编码参数
 	void DestoryVideoParam();										// 结束录像时释放相关输入参数
 	void FreeImgBuffer(); 											// 结束时释放所有Mat数据类型
-	
 
 	void SetWaterMaskFlag(int flag);								
 	void SetGrabImgFlag(int flag);

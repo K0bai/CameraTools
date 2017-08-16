@@ -35,7 +35,7 @@ cv::Mat OGLWidget::GetPaintImage()
 }
 
 /*
- *
+ * openGL初始化函数
  */
 void OGLWidget::initializeGL()
 {
@@ -48,7 +48,7 @@ void OGLWidget::initializeGL()
 }
 
 /*
- *
+ * openGL绘制图像函数，可调用update触发
  */
 void OGLWidget::paintGL()
 {
@@ -74,7 +74,7 @@ void OGLWidget::paintGL()
 }
 
 /*
- *
+ * 当QOpenGLWidget改变大小时触发
  */
 void OGLWidget::resizeGL(int w, int h)
 {
