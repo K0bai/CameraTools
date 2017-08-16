@@ -73,6 +73,7 @@ public:
 	void AddWaterMask(cv::Mat& img); 								// 添加水印时的处理函数
 	void GrabImage(const cv::Mat& img);									// 抓拍功能主函数
 	void PreviewImage(cv::Mat& img);								// 预览主函数，在里面实现正常，黑白和油画风格切换，并将图像数据写入缓冲队列
+	void OilPaintProcess(cv::Mat& img);								// 油画效果处理函数
 	void OptimizeImage(cv::Mat& img);								// 噪点优化函数，在里面实现对图像的中值滤波
 	void OpenOutputVideo();	 										// 打开输出文件的编码器以及编码参数
 	void DestoryVideoParam();										// 结束录像时释放相关输入参数

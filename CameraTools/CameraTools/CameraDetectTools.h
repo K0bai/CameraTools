@@ -48,7 +48,7 @@ class CameraDetectTools
 public:
 	virtual std::vector<CameraDeviceInfo> ListCameraDevice() = 0;		// 枚举当前系统可用的摄像头
 	virtual CameraDeviceInfo GetCameraDeviceInfo() = 0;					// 获取系统摄像头设备的相关参数
-	virtual cv::Mat GetFrameData() = 0;									// 得到摄像头一帧的图像数据
+	virtual cv::Mat GetFrameData(int& flag) = 0;						// 得到摄像头一帧的图像数据
 	virtual int CameraInputInit(const PreviewCameraInfo& cInfo) = 0;	// 配置摄像头及初始化
 	virtual int DestoryInputParam() = 0;								// 释放摄像头相关的参数		
 };

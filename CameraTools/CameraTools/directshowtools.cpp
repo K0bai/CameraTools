@@ -243,19 +243,28 @@ int DirectShowTools::CameraInputInit(const PreviewCameraInfo& cInfo)
 
 /*
  * 解码从摄像头获取的数据包
+ * 参数：
+ *		flag: 得到数据是否成功的标志位
  * 返回值：小于0，则解码数据失败；大于等于0，则解码成功
  */
-cv::Mat DirectShowTools::GetFrameData()
+cv::Mat DirectShowTools::GetFrameData(int& flag)
 {
 	int ret = av_read_frame(m_inputFormatCtx, &m_packet);
 	SwsContext* imgConvertCtx;
 
+	if (ret < 0) {
+		flag = -1;
+		return cv::Mat();
+	}
+
 	if (m_packet.stream_index != m_videoStream) {
+		flag = -1;
 		return cv::Mat();
 	}
 	int frameFinished = 0;
 	avcodec_decode_video2(m_inputCodecCtx, m_inputFrame, &frameFinished, &m_packet);
 	if (!frameFinished) {
+		flag = -1;
 		return cv::Mat();
 	}
 

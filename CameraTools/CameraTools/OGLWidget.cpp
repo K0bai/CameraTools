@@ -39,7 +39,7 @@ cv::Mat OGLWidget::GetPaintImage()
  */
 void OGLWidget::initializeGL()
 {
-	glClearColor(255, 255, 255, 0);
+	glClearColor(255, 255, 255, 255);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_LIGHT0);
 	glEnable(GL_LIGHTING);

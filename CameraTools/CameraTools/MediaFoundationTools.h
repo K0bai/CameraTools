@@ -30,7 +30,7 @@ public:
 	virtual int CameraInputInit(const PreviewCameraInfo& cInfo);
 	virtual std::vector<CameraDeviceInfo> ListCameraDevice(); 
 	virtual CameraDeviceInfo GetCameraDeviceInfo();
-	virtual cv::Mat GetFrameData();
+	virtual cv::Mat GetFrameData(int& flag);
 	virtual int DestoryInputParam();
 	
 	
@@ -40,7 +40,7 @@ public:
 	std::string ToFpsString(int framerate, int den);	// 得到帧率
 	std::string GetSubType(GUID guid);					// 得到GUID对应的数据类型
 	GUID GetSubType(std::string type);					// 设置摄像头输出的数据类型
-	void SetDataInfo(const PreviewCameraInfo& cInfo);	// 设置摄像头工作时的参数
+	int SetDataInfo(const PreviewCameraInfo& cInfo);	// 设置摄像头工作时的参数
 
 	void GetResolutionFromString(
 		const std::string &res, 

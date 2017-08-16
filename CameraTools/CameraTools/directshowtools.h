@@ -23,7 +23,7 @@ public:
 	virtual int CameraInputInit(const PreviewCameraInfo& cInfo);
 	virtual std::vector<CameraDeviceInfo> ListCameraDevice();	
 	virtual CameraDeviceInfo GetCameraDeviceInfo();
-	virtual cv::Mat GetFrameData();
+	virtual cv::Mat GetFrameData(int& flag);
 	virtual int DestoryInputParam();
 
 	std::string GetSubType(GUID guid);			// 得到摄像头设备的GUID对应的类型

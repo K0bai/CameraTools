@@ -152,8 +152,9 @@ int MediaFoundationTools::GetDevice(std::string name)
  * 设置摄像头的工作参数
  * 参数：
  *		cInfo：包含摄像头的分辨率，帧率，输出数据格式参数
+ * 返回值：小于0则失败，大于等于0则成功
  */
-void MediaFoundationTools::SetDataInfo(const PreviewCameraInfo& cInfo)
+int MediaFoundationTools::SetDataInfo(const PreviewCameraInfo& cInfo)
 {
 	GUID subtype = GetSubType(cInfo.type);
 
@@ -165,28 +166,34 @@ void MediaFoundationTools::SetDataInfo(const PreviewCameraInfo& cInfo)
 		0, 
 		&pNativeType);
 
+	int flag = 0;
 	if (FAILED(hr)) {
+		flag = -1;
 		goto done;
 	}
 
 	GUID majorType;
 	hr = pNativeType->GetGUID(MF_MT_MAJOR_TYPE, &majorType);
 	if (FAILED(hr)) {
+		flag = -1;
 		goto done;
 	}
 
 	hr = MFCreateMediaType(&pType);
 	if (FAILED(hr)) {
+		flag = -1;
 		goto done;
 	}
 
 	hr = pType->SetGUID(MF_MT_MAJOR_TYPE, majorType);
 	if (FAILED(hr)) {
+		flag = -1;
 		goto done;
 	}
 
 	hr = pType->SetGUID(MF_MT_SUBTYPE, subtype);
 	if (FAILED(hr)) {
+		flag = -1;
 		goto done;
 	}
 	int width = 0, height = 0;
@@ -202,6 +209,7 @@ void MediaFoundationTools::SetDataInfo(const PreviewCameraInfo& cInfo)
 			pType);
 
 	if (FAILED(hr)) {
+		flag = -1;
 		goto done;
 	}
 
@@ -210,6 +218,10 @@ done:
 	pNativeType = NULL;
 	pType->Release();
 	pType = NULL;
+	if (flag < 0) {
+		return -1;
+	}
+	return 0;
 }
 
 /*
@@ -265,6 +277,7 @@ std::vector<CameraDeviceInfo> MediaFoundationTools::ListCameraDevice()
 	}
 	if (dwCount == 0) {
 		hr = E_FAIL;
+		return cInfo;
 	}
 	WCHAR friendlyName[256];
 	for (DWORD i = 0; i < dwCount; i++) {
@@ -299,6 +312,9 @@ CameraDeviceInfo MediaFoundationTools::GetCameraDeviceInfo()
 		m_pAttributes,
 		&m_pReader
 	);
+	if (FAILED(hr)) {
+		return cDeviceInfo;
+	}
 
 	IMFMediaType* mediaType = nullptr;
 	GUID  subtype{ 0 };
@@ -314,9 +330,16 @@ CameraDeviceInfo MediaFoundationTools::GetCameraDeviceInfo()
 			break;
 		
 		hr = mediaType->GetGUID(MF_MT_SUBTYPE, &subtype);
-		
+		if (hr != S_OK)
+			break;
+
 		hr = MFGetAttributeSize(mediaType, MF_MT_FRAME_SIZE, &width, &height);
+		if (hr != S_OK)
+			break;
+
 		hr = MFGetAttributeRatio(mediaType, MF_MT_FRAME_RATE, &frameRate, &denominator);
+		if (hr != S_OK)
+			break;
 
 		cDeviceInfo.data_type.insert(GetSubType(subtype));
 		cDeviceInfo.data_fps.insert(ToFpsString(frameRate,denominator));
@@ -540,9 +563,11 @@ bool MediaFoundationTools::MJPGToBGR24(
 
 /*
  * 解码从摄像头获取的数据包
+ * 参数：
+ *		flag: 得到数据是否成功的标志位
  * 返回值：小于0，则解码数据失败；大于等于0，则解码成功
  */
-cv::Mat MediaFoundationTools::GetFrameData()
+cv::Mat MediaFoundationTools::GetFrameData(int& flag)
 {
 	HRESULT hr;
 	IMFSample *pSample;
@@ -562,6 +587,7 @@ cv::Mat MediaFoundationTools::GetFrameData()
 	);
 
 	if (FAILED(hr)) {
+		flag = -1;
 		return m_frameImg;
 	}
 	
@@ -603,8 +629,14 @@ int MediaFoundationTools::CameraInputInit(const PreviewCameraInfo& cInfo)
 		m_pAttributes,
 		&m_pReader
 	);
+	if (FAILED(hr)) {
+		return -1;
+	}
 
-	SetDataInfo(cInfo);
+	if (SetDataInfo(cInfo) < 0) {
+		return -1;
+	}
+
 	CoTaskMemFree(m_ppDevices);
 	m_pAttributes->Release();
 	MFShutdown();

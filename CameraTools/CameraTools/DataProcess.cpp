@@ -563,15 +563,54 @@ void DataProcess::SaveGrabImage()
 	m_grabImgFlag = DP_GRAB_READY;
 }
 
-void OilPaint(cv::Mat& img, int brushSize, int coarseness)
+/*
+ * 预览功能图像处理函数，
+ * 根据当前显示风格进行不同的处理
+ * 处理完成将图像数据放入缓冲队列
+ * 参数：
+ *		img: 待预处理的图像
+ */
+void DataProcess::PreviewImage(cv::Mat& img)
 {
-	assert(!img.empty());
-	if (brushSize < 1) brushSize = 1;
-	if (brushSize > 8) brushSize = 8;
 
-	if (coarseness < 1) coarseness = 1;
-	if (coarseness > 255) coarseness = 255;
+	switch (m_imageStyle)
+	{
+	case DP_IMAGESTYLE_NORMAL:
+	{
+		cv::cvtColor(img, img, CV_BGR2RGB);			// opencv默认是BGR排序，转到QT中显示需要RGB排序
+		break;
+	}
+	case DP_IMAGESTYLE_OIL:
+	{
+		OilPaintProcess(img);
+		cv::cvtColor(img, img, CV_BGR2RGB);
+		break;
+	}
+	case DP_IMAGESTYLE_GRAY:
+	{
+		cv::cvtColor(img, img, cv::COLOR_BGR2GRAY);
+		break;
+	}
+	default:
+		break;
+	}
 
+	EnterCriticalSection(&m_previewLock);
+
+	while (m_showImageBuf.size() > 1) {
+		m_showImageBuf.pop();
+	}
+	m_showImageBuf.push(img.clone());
+
+	LeaveCriticalSection(&m_previewLock);
+
+	emit SendUpdataImgMsg();
+}
+
+void DataProcess::OilPaintProcess(cv::Mat & img)
+{
+	int brushSize = 2;
+	int coarseness = 110;
 	int width = img.cols;
 	int height = img.rows;
 
@@ -586,23 +625,23 @@ void OilPaint(cv::Mat& img, int brushSize, int coarseness)
 
 	cv::Mat dst = cv::Mat::zeros(img.size(), img.type());
 
-	for (int nY = 0; nY <height; nY++)
+	for (int nY = 0; nY < height; nY++)
 	{
 		int top = nY - brushSize;
 		int bottom = nY + brushSize + 1;
 
-		if (top<0) top = 0;
+		if (top < 0) top = 0;
 		if (bottom >= height) bottom = height - 1;
 
-		for (int nX = 0; nX<width; nX++)
+		for (int nX = 0; nX < width; nX++)
 		{
 			int left = nX - brushSize;
 			int right = nX + brushSize + 1;
 
-			if (left<0) left = 0;
+			if (left < 0) left = 0;
 			if (right >= width) right = width - 1;
 
-			for (int i = 0; i <lenArray; i++)
+			for (int i = 0; i < lenArray; i++)
 			{
 				CountIntensity[i] = 0;
 				RedAverage[i] = 0;
@@ -610,7 +649,7 @@ void OilPaint(cv::Mat& img, int brushSize, int coarseness)
 				BlueAverage[i] = 0;
 			}
 
-			for (int j = top; j<bottom; j++)
+			for (int j = top; j < bottom; j++)
 			{
 				for (int i = left; i < right; i++)
 				{
@@ -625,7 +664,7 @@ void OilPaint(cv::Mat& img, int brushSize, int coarseness)
 
 			uchar chosenIntensity = 0;
 			int maxInstance = CountIntensity[0];
-			for (int i = 1; i<lenArray; i++)
+			for (int i = 1; i < lenArray; i++)
 			{
 				if (CountIntensity[i] > maxInstance)
 				{
@@ -646,50 +685,6 @@ void OilPaint(cv::Mat& img, int brushSize, int coarseness)
 	delete[] GreenAverage;
 	delete[] BlueAverage;
 	dst.copyTo(img);
-}
-
-/*
- * 预览功能图像处理函数，
- * 根据当前显示风格进行不同的处理
- * 处理完成将图像数据放入缓冲队列
- * 参数：
- *		img: 待预处理的图像
- */
-void DataProcess::PreviewImage(cv::Mat& img)
-{
-
-	switch (m_imageStyle)
-	{
-	case DP_IMAGESTYLE_NORMAL:
-	{
-		cv::cvtColor(img, img, CV_BGR2RGB);			// opencv默认是BGR排序，转到QT中显示需要RGB排序
-		break;
-	}
-	case DP_IMAGESTYLE_OIL:
-	{
-		OilPaint(img, 2, 100);
-		cv::cvtColor(img, img, CV_BGR2RGB);
-		break;
-	}
-	case DP_IMAGESTYLE_GRAY:
-	{
-		cv::cvtColor(img, img, cv::COLOR_BGR2GRAY);
-		break;
-	}
-	default:
-		break;
-	}
-
-	EnterCriticalSection(&m_previewLock);
-
-	while (m_showImageBuf.size() > 1) {
-		m_showImageBuf.pop();
-	}
-	m_showImageBuf.push(img);
-
-	LeaveCriticalSection(&m_previewLock);
-
-	emit SendUpdataImgMsg();
 }
 
 /*
@@ -739,10 +734,10 @@ void DataProcess::GetSaveImageBuffer(cv::Mat& img)
 }
 
 /*
- * 图像编码存储线程
- * 参数：
- *		pm：另一个线程传入的对象指针
- */
+* 图像编码存储线程
+* 参数：
+*		pm：另一个线程传入的对象指针
+*/
 DWORD WINAPI SaveVideoThread(LPVOID pm)
 {
 	DataProcess *pDP = static_cast<DataProcess*>(pm);
@@ -760,20 +755,46 @@ DWORD WINAPI SaveVideoThread(LPVOID pm)
 			SwsContext* pSwsCxt;
 
 			if (img.channels() == 1/*pDP->GetImageStyle() == DP_IMAGESTYLE_GRAY*/) {
-				pSwsCxt = sws_getContext(img.cols,
-					img.rows, PIX_FMT_GRAY8, img.cols,
-					img.rows, PIX_FMT_YUV420P, SWS_BILINEAR, NULL, NULL, NULL);
+				pSwsCxt = sws_getContext(
+							img.cols,
+							img.rows,
+							PIX_FMT_GRAY8,
+							img.cols,
+							img.rows,
+							PIX_FMT_YUV420P,
+							SWS_BILINEAR,
+							NULL, NULL, NULL);
 				int rgbStride[3] = { img.cols, 0, 0 };
-				sws_scale(pSwsCxt, rgbSrc, rgbStride, 0, img.rows,
-					((AVPicture *)pDP->GetOutputFrame())->data, ((AVPicture *)pDP->GetOutputFrame())->linesize);
+
+				sws_scale(
+					pSwsCxt,
+					rgbSrc,
+					rgbStride,
+					0,
+					img.rows,
+					((AVPicture *)pDP->GetOutputFrame())->data,
+					((AVPicture *)pDP->GetOutputFrame())->linesize);
 			}
 			else {
-				pSwsCxt = sws_getContext(img.cols,
-					img.rows, PIX_FMT_RGB24, img.cols,
-					img.rows, PIX_FMT_YUV420P, SWS_BILINEAR, NULL, NULL, NULL);
+				pSwsCxt = sws_getContext(
+							img.cols,
+							img.rows,
+							PIX_FMT_RGB24,
+							img.cols,
+							img.rows,
+							PIX_FMT_YUV420P,
+							SWS_BILINEAR,
+							NULL, NULL, NULL);
 				int rgbStride[3] = { 3 * img.cols, 0, 0 };
-				sws_scale(pSwsCxt, rgbSrc, rgbStride, 0, img.rows,
-					((AVPicture *)pDP->GetOutputFrame())->data, ((AVPicture *)pDP->GetOutputFrame())->linesize);
+
+				sws_scale(
+					pSwsCxt,
+					rgbSrc,
+					rgbStride,
+					0,
+					img.rows,
+					((AVPicture *)pDP->GetOutputFrame())->data,
+					((AVPicture *)pDP->GetOutputFrame())->linesize);
 			}
 
 			pDP->WriteVideoFrame(ptsNum);
@@ -794,13 +815,13 @@ DWORD WINAPI SaveVideoThread(LPVOID pm)
 }
 
 /*
- * 录像功能主函数
- * 根据当前录像状态参数进行初始化，编码存储
- * 直接返回或者将数据写入文件尾
- * 参数：
- *		img：待编码存储的图像数据
- *		cInfo：编码的参数，包括分辨率，帧率
- */
+* 录像功能主函数
+* 根据当前录像状态参数进行初始化，编码存储
+* 直接返回或者将数据写入文件尾
+* 参数：
+*		img：待编码存储的图像数据
+*		cInfo：编码的参数，包括分辨率，帧率
+*/
 void DataProcess::SaveVideo(const cv::Mat& img, const PreviewCameraInfo& cInfo)
 {
 	if (m_saveVideoFlag == DP_SAVEVIDEO_NONE) {
@@ -833,10 +854,12 @@ void DataProcess::run()
 	LARGE_INTEGER nFreq;
 	LARGE_INTEGER nFirstTime;
 	LARGE_INTEGER nEndTime;
-
 	QueryPerformanceFrequency(&nFreq);
 
-	m_pCDT->CameraInputInit(m_cameraInfo);
+	if (m_pCDT->CameraInputInit(m_cameraInfo) < 0) {
+		SendAbort(-1);
+		return;
+	}
 
 	int fps = atoi(m_cameraInfo.fps.c_str());
 	int perTime = 1000 / fps;
@@ -849,7 +872,11 @@ void DataProcess::run()
 
 		QueryPerformanceCounter(&nFirstTime);
 
-		cv::Mat img = m_pCDT->GetFrameData();
+		cv::Mat img = m_pCDT->GetFrameData(ret);
+		if (ret < 0) {
+			break;
+		}
+
 		if (img.empty()) {
 			Sleep(100);
 			continue;
