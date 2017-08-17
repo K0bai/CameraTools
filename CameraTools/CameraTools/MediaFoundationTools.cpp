@@ -609,7 +609,7 @@ cv::Mat MediaFoundationTools::GetFrameData(int& flag)
 /*
  * 摄像头初始化函数
  * 参数：
- *		cInfo：需要设置的餐宿
+ *		cInfo：需要设置的参数
  * 返回值：小于0，则初始化不成功；大于等于0，初始化成功
  */
 int MediaFoundationTools::CameraInputInit(const PreviewCameraInfo& cInfo)
